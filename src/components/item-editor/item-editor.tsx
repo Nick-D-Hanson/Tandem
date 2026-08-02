@@ -20,7 +20,7 @@ import type { RecurrenceFrequency, RecurrenceRule } from "@/lib/recurrence";
 import type { CalendarSelection } from "@/components/calendar/calendar-view";
 import type { EventView, ListView, MemberView, TaskView } from "@/lib/types";
 
-export function ItemEditor({ open, selection, timezone, tasks, events, lists, members, onOpenChange }: {
+export function ItemEditor({ open, selection, timezone, tasks, events, lists, members, onOpenChange, onTaskCreated }: {
   open: boolean;
   selection: CalendarSelection | null;
   timezone: string;
@@ -29,13 +29,14 @@ export function ItemEditor({ open, selection, timezone, tasks, events, lists, me
   lists: ListView[];
   members: MemberView[];
   onOpenChange: (open: boolean) => void;
+  onTaskCreated?: () => void;
 }) {
   if (!open || !selection) return null;
   const editorKey = `${selection.type}:${selection.id ?? "new"}:${selection.date ?? ""}:${selection.time ?? ""}`;
-  return <ItemEditorContent key={editorKey} open={open} selection={selection} timezone={timezone} tasks={tasks} events={events} lists={lists} members={members} onOpenChange={onOpenChange} />;
+  return <ItemEditorContent key={editorKey} open={open} selection={selection} timezone={timezone} tasks={tasks} events={events} lists={lists} members={members} onOpenChange={onOpenChange} onTaskCreated={onTaskCreated} />;
 }
 
-function ItemEditorContent({ open, selection, timezone, tasks, events, lists, members, onOpenChange }: {
+function ItemEditorContent({ open, selection, timezone, tasks, events, lists, members, onOpenChange, onTaskCreated }: {
   open: boolean;
   selection: CalendarSelection;
   timezone: string;
@@ -44,6 +45,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
   lists: ListView[];
   members: MemberView[];
   onOpenChange: (open: boolean) => void;
+  onTaskCreated?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -91,6 +93,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
           });
       if (!result.ok) return setError(result.error);
       toast.success(`${type === "event" ? "Event" : "Task"} saved`, { description: title });
+      if (type === "task" && !task) onTaskCreated?.();
       onOpenChange(false);
       router.refresh();
     });

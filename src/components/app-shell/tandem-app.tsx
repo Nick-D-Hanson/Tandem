@@ -81,7 +81,7 @@ export function TandemApp({ data, initialView = "month", initialDate }: { data: 
         <MobileNavButton icon={Plus} label="Add" onClick={() => openEditor({ type: "task", date: dateKey(anchor) })} />
         <MobileNavButton active={mobileScreen === "tasks"} icon={ListChecks} label="Tasks" onClick={showTasks} />
       </nav>
-      <ItemEditor open={editorOpen} selection={selection} timezone={data.workspace.timezone} tasks={data.tasks} events={data.events} lists={data.lists} members={data.members} onOpenChange={setEditorOpen} />
+      <ItemEditor open={editorOpen} selection={selection} timezone={data.workspace.timezone} tasks={data.tasks} events={data.events} lists={data.lists} members={data.members} onOpenChange={setEditorOpen} onTaskCreated={showTasks} />
     </main>
   );
 }
