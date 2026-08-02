@@ -17,11 +17,7 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function appUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
-}
-
-export async function createWorkspaceAction(input: unknown): Promise<ActionResult<{ inviteLink: string }>> {
+export async function createWorkspaceAction(input: unknown): Promise<ActionResult<{ invitePath: string }>> {
   const parsed = workspaceSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
 
@@ -54,9 +50,9 @@ export async function createWorkspaceAction(input: unknown): Promise<ActionResul
     const [created] = createdRows;
 
     if (!created) throw new Error("WORKSPACE_CREATE_FAILED");
-    const invite = await createInviteForWorkspace(created.workspace_id, user.id);
+    const invitePath = await createInviteForWorkspace(created.workspace_id, user.id);
     revalidatePath("/app");
-    return { ok: true, data: { inviteLink: invite } };
+    return { ok: true, data: { invitePath } };
   } catch (error) {
     return actionFailure(error);
   }
@@ -78,16 +74,16 @@ async function createInviteForWorkspace(workspaceId: string, userId: string) {
     expiresAt: addDays(new Date(), INVITE_TTL_DAYS),
   });
 
-  return `${appUrl()}/invite/${rawToken}`;
+  return `/invite/${rawToken}`;
 }
 
-export async function createInviteAction(): Promise<ActionResult<{ inviteLink: string }>> {
+export async function createInviteAction(): Promise<ActionResult<{ invitePath: string }>> {
   try {
     const { user, membership } = await requireWorkspace();
     const memberCount = await db.select({ id: workspaceMembers.id }).from(workspaceMembers).where(eq(workspaceMembers.workspaceId, membership.workspaceId));
     if (memberCount.length >= 2) throw new Error("WORKSPACE_FULL");
-    const inviteLink = await createInviteForWorkspace(membership.workspaceId, user.id);
-    return { ok: true, data: { inviteLink } };
+    const invitePath = await createInviteForWorkspace(membership.workspaceId, user.id);
+    return { ok: true, data: { invitePath } };
   } catch (error) {
     return actionFailure(error);
   }

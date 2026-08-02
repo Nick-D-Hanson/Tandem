@@ -10,8 +10,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createWorkspaceAction } from "@/lib/actions/workspace";
+import { copyText } from "@/lib/clipboard";
 import { DEFAULT_WORKSPACE_NAME } from "@/lib/constants";
 import { safeBrowserTimezone } from "@/lib/dates/timezone";
+import { absoluteInviteUrl } from "@/lib/invites";
 
 export function OnboardingForm({ defaultDisplayName }: { defaultDisplayName: string }) {
   const router = useRouter();
@@ -28,14 +30,15 @@ export function OnboardingForm({ defaultDisplayName }: { defaultDisplayName: str
         displayName: String(formData.get("displayName") || ""),
       });
       if (!result.ok) return setError(result.error);
-      setInviteLink(result.data.inviteLink);
+      setInviteLink(absoluteInviteUrl(result.data.invitePath, window.location.origin));
       toast.success("Workspace created");
     });
   }
 
   async function copyInvite() {
-    await navigator.clipboard.writeText(inviteLink);
-    toast.success("Invite link copied");
+    const copied = await copyText(inviteLink);
+    if (copied) toast.success("Invite link copied");
+    else toast.error("Clipboard access was blocked. Select and copy the link manually.");
   }
 
   if (inviteLink) {

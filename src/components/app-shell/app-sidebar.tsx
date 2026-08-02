@@ -16,8 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createInviteAction } from "@/lib/actions/workspace";
 import { deleteListAction, saveListAction } from "@/lib/actions/items";
+import { copyText } from "@/lib/clipboard";
 import { LIST_COLORS } from "@/lib/constants";
 import { utcToLocalParts, zonedNow, dateKey } from "@/lib/dates/timezone";
+import { absoluteInviteUrl } from "@/lib/invites";
 import type { ListView, MemberView, TaskView, WorkspaceView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -51,8 +53,9 @@ export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter,
     startTransition(async () => {
       const result = await createInviteAction();
       if (!result.ok) { toast.error(result.error); return; }
-      await navigator.clipboard.writeText(result.data.inviteLink);
-      toast.success("Fresh invite link copied", { description: "It expires in seven days." });
+      const copied = await copyText(absoluteInviteUrl(result.data.invitePath, window.location.origin));
+      if (copied) toast.success("Fresh invite link copied", { description: "It expires in seven days." });
+      else toast.error("Clipboard access was blocked", { description: "Create the link from Settings → Members to copy it manually." });
     });
   }
 
@@ -85,10 +88,10 @@ export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter,
         </nav>
         <div className="flex items-center justify-between"><SidebarLabel>Shared lists</SidebarLabel><Button variant="ghost" size="icon-sm" aria-label="Create list" onClick={() => setListDialog("new")}><Plus /></Button></div>
         <nav className="grid gap-1">{lists.map((list) => <div key={list.id} className="group flex items-center"><button onClick={() => choose(`list:${list.id}`)} className={cn("flex min-h-10 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 text-left text-sm hover:bg-secondary", filter === `list:${list.id}` && "bg-accent font-medium text-accent-foreground")}><span className="size-2.5 rounded-full" style={{ backgroundColor: list.color }} /><span className="truncate">{list.name}</span><span className="ml-auto text-xs text-muted-foreground">{open.filter((task) => task.listId === list.id).length}</span></button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label={`Manage ${list.name}`}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuItem onClick={() => setListDialog(list)}>Rename & recolor</DropdownMenuItem><DropdownMenuItem variant="destructive" onClick={() => setDeleteList(list)}><Trash2 />Delete list</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>)}</nav>
-        <div className="mt-auto grid gap-2.5 rounded-xl border bg-card p-3">
-          <div className="flex items-center justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold">{workspace.name}</p><p className="truncate text-xs text-muted-foreground">{workspace.timezone}</p></div><div className="flex -space-x-2">{members.map((member, index) => <span key={member.userId} title={member.displayName} className={cn("grid size-8 place-items-center rounded-full border-2 border-card bg-blue-600 text-[10px] font-bold text-white", index === 1 && "bg-teal-700")}>{initials(member.displayName)}</span>)}</div></div>
-          {members.length < 2 && <Button variant="outline" size="sm" disabled={pending} onClick={copyInvite}>{pending ? <Loader2 className="animate-spin" /> : <Copy />}Copy invite link</Button>}
-          <Button variant="ghost" size="sm" asChild className="justify-start"><Link href="/settings" onClick={onNavigate}><Settings />Workspace settings</Link></Button>
+        <div className="mt-auto grid w-full min-w-0 gap-2.5 overflow-hidden rounded-xl border bg-card p-3">
+          <div className="flex min-w-0 items-center gap-2"><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold" title={workspace.name}>{workspace.name}</p><p className="truncate text-xs text-muted-foreground">{workspace.timezone}</p></div><div className="flex shrink-0 -space-x-2">{members.map((member, index) => <span key={member.userId} title={member.displayName} className={cn("grid size-8 place-items-center rounded-full border-2 border-card bg-blue-600 text-[10px] font-bold text-white", index === 1 && "bg-teal-700")}>{initials(member.displayName)}</span>)}</div></div>
+          {members.length < 2 && <Button variant="outline" size="sm" className="w-full min-w-0" disabled={pending} onClick={copyInvite}>{pending ? <Loader2 className="animate-spin" /> : <Copy />}<span className="truncate">Copy invite link</span></Button>}
+          <Button variant="ghost" size="sm" asChild className="w-full min-w-0 justify-start overflow-hidden"><Link href="/settings" onClick={onNavigate}><Settings /><span className="truncate">Workspace settings</span></Link></Button>
         </div>
       </div>
       <ListDialog value={listDialog} open={Boolean(listDialog)} onOpenChange={(open) => !open && setListDialog(null)} />
