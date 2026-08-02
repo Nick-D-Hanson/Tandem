@@ -119,9 +119,10 @@ export async function saveEventAction(input: unknown): Promise<ActionResult<{ id
     const { user, membership } = await requireWorkspace();
     const timezone = await getWorkspaceTimezone(membership.workspaceId);
     const value = parsed.data;
+    const allDay = true;
     const category = await getCategory(membership.workspaceId, value.listId || undefined);
-    const startAt = localDateTimeToUtc({ date: value.date, time: value.allDay ? null : value.startTime }, timezone);
-    const endAt = value.allDay
+    const startAt = localDateTimeToUtc({ date: value.date, time: allDay ? null : value.startTime }, timezone);
+    const endAt = allDay
       ? localDateTimeToUtc({ date: dateKey(addDays(localDate(value.endDate), 1)), time: null }, timezone)
       : localDateTimeToUtc({ date: value.endDate, time: value.endTime }, timezone);
     const data = {
@@ -131,7 +132,7 @@ export async function saveEventAction(input: unknown): Promise<ActionResult<{ id
       listId: category?.id ?? null,
       startAt,
       endAt,
-      allDay: value.allDay,
+      allDay,
       color: category?.color ?? "#64748b",
       recurrence: serializeRecurrence(value.recurrence),
       updatedBy: user.id,

@@ -77,14 +77,14 @@ export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter,
         <Button className="justify-start" onClick={onAdd}><Plus />Add item</Button>
         <nav className="grid gap-1" aria-label="Primary">
           <NavButton active={filter === "all"} icon={CalendarDays} label="Calendar" onClick={() => { onFilter("all"); onNavigate?.(); }} />
-          <NavButton active={filter === "all"} icon={ListChecks} label="All tasks" count={open.length} onClick={() => choose("all")} />
+          <NavButton active={filter === "all"} icon={ListChecks} label="All incomplete" count={open.length} onClick={() => choose("all")} />
         </nav>
         <SidebarLabel>Smart views</SidebarLabel>
         <nav className="grid gap-1">
           <NavButton active={filter === "inbox"} icon={Inbox} label="Inbox" count={open.filter((task) => !task.listId).length} onClick={() => choose("inbox")} />
           <NavButton active={filter === "today"} icon={CalendarDays} label="Today" count={todayCount} onClick={() => choose("today")} />
           <NavButton active={filter === "upcoming"} icon={Clock3} label="Upcoming" count={upcomingCount} onClick={() => choose("upcoming")} />
-          <NavButton active={filter === "completed"} icon={CheckCircle2} label="Completed" onClick={() => choose("completed")} />
+          <NavButton active={filter === "completed"} icon={CheckCircle2} label="Completed" count={tasks.length - open.length} onClick={() => choose("completed")} />
         </nav>
         <div className="flex items-center justify-between"><SidebarLabel>Shared lists</SidebarLabel><Button variant="ghost" size="icon-sm" aria-label="Create list" onClick={() => setListDialog("new")}><Plus /></Button></div>
         <nav className="grid gap-1">{lists.map((list) => <div key={list.id} className="group flex items-center"><button onClick={() => choose(`list:${list.id}`)} className={cn("flex min-h-10 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 text-left text-sm hover:bg-secondary", filter === `list:${list.id}` && "bg-accent font-medium text-accent-foreground")}><span className="size-2.5 rounded-full" style={{ backgroundColor: list.color }} /><span className="truncate">{list.name}</span><span className="ml-auto text-xs text-muted-foreground">{open.filter((task) => task.listId === list.id).length}</span></button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label={`Manage ${list.name}`}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuItem onClick={() => setListDialog(list)}>Rename & recolor</DropdownMenuItem><DropdownMenuItem variant="destructive" onClick={() => setDeleteList(list)}><Trash2 />Delete list</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>)}</nav>

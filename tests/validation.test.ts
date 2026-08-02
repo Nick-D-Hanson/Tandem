@@ -24,7 +24,7 @@ describe("mutation validation", () => {
   });
 
   it("accepts a multi-day event without times", () => {
-    const result = eventSchema.safeParse({ title: "Vacation", date: "2026-08-02", endDate: "2026-08-08", allDay: true, listId: "", recurrence: null });
+    const result = eventSchema.safeParse({ title: "Vacation", date: "2026-08-02", endDate: "2026-08-08", allDay: false, listId: "", recurrence: null });
     expect(result.success).toBe(true);
   });
 

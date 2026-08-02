@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, CircleAlert, ListTodo, Plus, Repeat2 } from "lucide-react";
+import { CheckCircle2, CircleAlert, Flag, ListTodo, Plus, Repeat2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toggleTaskAction } from "@/lib/actions/items";
 import { dateKey, localDate, utcToLocalParts, zonedNow } from "@/lib/dates/timezone";
 import { recurrenceLabel } from "@/lib/recurrence";
@@ -15,6 +16,8 @@ import type { ListView, MemberView, TaskView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type TaskFilter = "all" | "inbox" | "today" | "upcoming" | "completed" | `list:${string}`;
+type TaskGrouping = "creator" | "category";
+type TaskSectionData = { key: string; title: string; tasks: TaskView[]; color?: string };
 
 export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter, onEdit, onAdd, className }: {
   tasks: TaskView[];
@@ -28,6 +31,8 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
 }) {
   const router = useRouter();
   const [completionOverrides, setCompletionOverrides] = useState<Record<string, string | null>>({});
+  const [grouping, setGrouping] = useState<TaskGrouping>("creator");
+  const [creatorId, setCreatorId] = useState<"all" | string>("all");
   const tasks = serverTasks.map((task) => Object.hasOwn(completionOverrides, task.id) ? { ...task, completedAt: completionOverrides[task.id] } : task);
   const today = dateKey(zonedNow(timezone));
 
@@ -59,7 +64,7 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
   const filtered = useMemo(() => tasks.filter((task) => {
     const dueDate = task.dueAt ? utcToLocalParts(task.dueAt, timezone).date : null;
     if (filter === "completed") return Boolean(task.completedAt);
-    if (task.completedAt) return filter === "all";
+    if (task.completedAt) return false;
     if (filter === "today") return dueDate === today;
     if (filter === "upcoming") return Boolean(dueDate && dueDate > today);
     if (filter === "inbox") return !task.listId;
@@ -67,15 +72,16 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
     return true;
   }), [tasks, filter, timezone, today]);
 
-  const sections = filter === "all" ? buildSections(filtered, timezone, today) : [{ title: filterLabel(filter, lists), tasks: filtered }];
+  const visibleTasks = grouping === "creator" && creatorId !== "all" ? filtered.filter((task) => task.createdBy === creatorId) : filtered;
+  const sections = grouping === "creator" ? buildCreatorSections(visibleTasks, members, timezone, today) : buildCategorySections(visibleTasks, lists, timezone, today);
 
   return (
     <aside className={cn("flex min-h-0 flex-col overflow-hidden border-l bg-card/95", className)} aria-label="Task agenda" data-testid="task-panel">
-      <header className="flex min-h-[62px] items-center border-b px-3.5"><div><h2 className="font-semibold tracking-tight">Tasks</h2><p className="text-xs text-muted-foreground">Shared work, one place</p></div></header>
+      <header className="grid gap-2 border-b p-3"><div className="flex items-start justify-between gap-2"><div><h2 className="font-semibold tracking-tight">Tasks</h2><p className="text-xs text-muted-foreground">{taskViewLabel(filter, lists)}</p></div><ToggleGroup type="single" value={grouping} onValueChange={(value) => value && setGrouping(value as TaskGrouping)} variant="outline" size="sm" spacing={0} aria-label="Group tasks by"><ToggleGroupItem value="creator" className="h-7 px-2 text-xs">Creator</ToggleGroupItem><ToggleGroupItem value="category" className="h-7 px-2 text-xs">Category</ToggleGroupItem></ToggleGroup></div>{grouping === "creator" && <div className="flex flex-wrap gap-1" role="group" aria-label="Filter tasks by creator"><Button type="button" size="sm" variant={creatorId === "all" ? "default" : "outline"} className="h-7 px-2.5 text-xs" onClick={() => setCreatorId("all")}>All creators</Button>{members.map((member) => <Button key={member.userId} type="button" size="sm" variant={creatorId === member.userId ? "default" : "outline"} className="h-7 min-w-0 px-2.5 text-xs" onClick={() => setCreatorId(member.userId)}><span className="grid size-4 shrink-0 place-items-center rounded-full bg-background/20 text-[8px] font-bold">{initials(member.displayName)}</span><span className="max-w-20 truncate">{member.displayName}</span></Button>)}</div>}</header>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <ScrollArea className="h-full"><div className="space-y-5 p-3 pb-24">
-          {filtered.length === 0 && <div className="grid place-items-center gap-2 py-16 text-center text-muted-foreground"><ListTodo className="size-9" /><p className="text-sm font-medium">Nothing here yet</p><p className="max-w-52 text-xs">Add a shared task or choose another view.</p></div>}
-          {sections.map((section) => section.tasks.length > 0 && <TaskSection key={section.title} title={section.title} tasks={section.tasks} lists={lists} members={members} timezone={timezone} onEdit={onEdit} onToggle={toggle} />)}
+          {visibleTasks.length === 0 && <div className="grid place-items-center gap-2 py-16 text-center text-muted-foreground"><ListTodo className="size-9" /><p className="text-sm font-medium">Nothing here yet</p><p className="max-w-52 text-xs">Add a shared task or choose another view.</p></div>}
+          {sections.map((section) => section.tasks.length > 0 && <TaskSection key={section.key} title={section.title} color={section.color} tasks={section.tasks} lists={lists} members={members} timezone={timezone} onEdit={onEdit} onToggle={toggle} />)}
         </div></ScrollArea>
         <Button className="absolute bottom-4 right-4 shadow-lg" onClick={onAdd}><Plus />New task</Button>
       </div>
@@ -83,26 +89,47 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
   );
 }
 
-function buildSections(tasks: TaskView[], timezone: string, today: string) {
-  const open = tasks.filter((task) => !task.completedAt);
+function taskViewLabel(filter: TaskFilter, lists: ListView[]) {
+  if (filter.startsWith("list:")) return lists.find((list) => list.id === filter.slice(5))?.name ?? "Category";
+  if (filter === "all") return "All incomplete";
+  if (filter === "inbox") return "Inbox";
+  if (filter === "today") return "Today";
+  if (filter === "upcoming") return "Upcoming";
+  return "Completed";
+}
+
+function sortTasks(tasks: TaskView[], timezone: string, today: string) {
   const due = (task: TaskView) => task.dueAt ? utcToLocalParts(task.dueAt, timezone).date : null;
-  return [
-    { title: "Overdue", tasks: open.filter((task) => due(task) && due(task)! < today) },
-    { title: "Today", tasks: open.filter((task) => due(task) === today) },
-    { title: "Upcoming", tasks: open.filter((task) => due(task) && due(task)! > today).sort((a, b) => (a.dueAt || "").localeCompare(b.dueAt || "")) },
-    { title: "Anytime", tasks: open.filter((task) => !task.dueAt) },
-    { title: "Recently completed", tasks: tasks.filter((task) => task.completedAt).sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")).slice(0, 6) },
-  ];
+  const rank = (task: TaskView) => {
+    if (task.completedAt) return 4;
+    const date = due(task);
+    if (date && date < today) return 0;
+    if (date === today) return 1;
+    if (date) return 2;
+    return 3;
+  };
+  return [...tasks].sort((a, b) => rank(a) - rank(b) || (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999") || a.createdAt.localeCompare(b.createdAt));
 }
 
-function filterLabel(filter: TaskFilter, lists: ListView[]) {
-  if (filter.startsWith("list:")) return lists.find((list) => list.id === filter.slice(5))?.name ?? "List";
-  const labels: Record<Exclude<TaskFilter, `list:${string}`>, string> = { all: "All tasks", inbox: "Inbox", today: "Today", upcoming: "Upcoming", completed: "Completed" };
-  return labels[filter as Exclude<TaskFilter, `list:${string}`>];
+function buildCreatorSections(tasks: TaskView[], members: MemberView[], timezone: string, today: string): TaskSectionData[] {
+  const sections: TaskSectionData[] = members.map((member) => ({ key: `creator:${member.userId}`, title: `Created by ${member.displayName}`, tasks: sortTasks(tasks.filter((task) => task.createdBy === member.userId), timezone, today) }));
+  const knownIds = new Set(members.map((member) => member.userId));
+  const other = tasks.filter((task) => !knownIds.has(task.createdBy));
+  if (other.length) sections.push({ key: "creator:former-member", title: "Created by a former member", tasks: sortTasks(other, timezone, today) });
+  return sections;
 }
 
-function TaskSection({ title, tasks, lists, members, timezone, onEdit, onToggle }: {
+function buildCategorySections(tasks: TaskView[], lists: ListView[], timezone: string, today: string): TaskSectionData[] {
+  const sections: TaskSectionData[] = lists.map((list) => ({ key: `category:${list.id}`, title: list.name, color: list.color, tasks: sortTasks(tasks.filter((task) => task.listId === list.id), timezone, today) }));
+  const knownIds = new Set(lists.map((list) => list.id));
+  const uncategorized = tasks.filter((task) => !task.listId || !knownIds.has(task.listId));
+  if (uncategorized.length) sections.push({ key: "category:inbox", title: "Inbox", color: "#64748b", tasks: sortTasks(uncategorized, timezone, today) });
+  return sections;
+}
+
+function TaskSection({ title, color, tasks, lists, members, timezone, onEdit, onToggle }: {
   title: string;
+  color?: string;
   tasks: TaskView[];
   lists: ListView[];
   members: MemberView[];
@@ -110,16 +137,17 @@ function TaskSection({ title, tasks, lists, members, timezone, onEdit, onToggle 
   onEdit: (id: string) => void;
   onToggle: (task: TaskView, completed: boolean) => void;
 }) {
-  return <section><div className="mb-1.5 flex items-center justify-between px-1 text-xs font-bold"><span className="flex items-center gap-1.5">{title === "Overdue" && <CircleAlert className="size-3.5 text-destructive" />}{title === "Recently completed" && <CheckCircle2 className="size-3.5 text-success" />}{title}</span><span className="font-normal text-muted-foreground">{tasks.length}</span></div><div className="grid gap-1">{tasks.map((task) => <TaskRow key={task.id} task={task} list={lists.find((list) => list.id === task.listId)} member={members.find((member) => member.userId === task.assigneeUserId)} timezone={timezone} onEdit={onEdit} onToggle={onToggle} />)}</div></section>;
+  return <section><div className="mb-1.5 flex items-center justify-between px-1 text-xs font-bold"><span className="flex items-center gap-1.5">{color && <span className="size-2.5 rounded-full ring-1 ring-black/10" style={{ backgroundColor: color }} />}{title === "Overdue" && <CircleAlert className="size-3.5 text-destructive" />}{title === "Recently completed" && <CheckCircle2 className="size-3.5 text-success" />}{title}</span><span className="font-normal text-muted-foreground">{tasks.length}</span></div><div className="grid gap-1">{tasks.map((task) => <TaskRow key={task.id} task={task} list={lists.find((list) => list.id === task.listId)} member={members.find((member) => member.userId === task.assigneeUserId)} timezone={timezone} onEdit={onEdit} onToggle={onToggle} />)}</div></section>;
 }
 
 function TaskRow({ task, list, member, timezone, onEdit, onToggle }: { task: TaskView; list?: ListView; member?: MemberView; timezone: string; onEdit: (id: string) => void; onToggle: (task: TaskView, completed: boolean) => void }) {
   const due = task.dueAt ? utcToLocalParts(task.dueAt, timezone) : null;
   const dueLabel = due ? formatDueDate(due.date, due.time, task.dueIsAllDay, dateKey(zonedNow(timezone))) : list?.name ?? "Inbox";
-  return <div role="button" tabIndex={0} onClick={() => onEdit(task.id)} onKeyDown={(event) => { if (event.key === "Enter") onEdit(task.id); }} className="grid cursor-pointer grid-cols-[22px_1fr_auto] items-start gap-2 rounded-lg border border-transparent p-2 hover:border-border hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`task-${task.id}`}>
+  const categoryColor = list?.color ?? "#64748b";
+  return <div role="button" tabIndex={0} onClick={() => onEdit(task.id)} onKeyDown={(event) => { if (event.key === "Enter") onEdit(task.id); }} className="grid cursor-pointer grid-cols-[22px_1fr_auto] items-start gap-2 rounded-lg border border-l-[3px] border-transparent p-2 hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" style={{ borderLeftColor: categoryColor, backgroundColor: `color-mix(in srgb, ${categoryColor} 8%, transparent)` }} data-testid={`task-${task.id}`}>
     <Checkbox checked={Boolean(task.completedAt)} onCheckedChange={(checked) => onToggle(task, Boolean(checked))} onClick={(event) => event.stopPropagation()} aria-label={`${task.completedAt ? "Reopen" : "Complete"} ${task.title}`} className="mt-0.5" />
-    <div className="min-w-0"><div className={cn("truncate text-sm font-medium", task.completedAt && "text-muted-foreground line-through")}>{task.title}</div><div className="mt-0.5 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground"><span>{dueLabel}</span>{due && list && <span>• {list.name}</span>}{task.recurrence && <span className="inline-flex items-center gap-0.5" title={recurrenceLabel(task.recurrence)}><Repeat2 className="size-3" />{recurrenceLabel(task.recurrence)}</span>}</div></div>
-    <div className="flex items-center gap-1.5"><span className={cn("h-6 w-[3px] rounded-full", task.priority === "high" && "bg-red-500", task.priority === "medium" && "bg-amber-500", task.priority === "low" && "bg-blue-400")} />{member && <span title={member.displayName} className="grid size-6 place-items-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">{initials(member.displayName)}</span>}</div>
+    <div className="min-w-0"><div className={cn("truncate text-sm font-medium", task.completedAt && "text-muted-foreground line-through")}>{task.title}</div><div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground"><span>{dueLabel}</span>{due && list && <span className="inline-flex items-center gap-1">• <span className="size-2 rounded-full" style={{ backgroundColor: categoryColor }} />{list.name}</span>}{task.priority !== "none" && <span className="inline-flex items-center gap-0.5 capitalize"><Flag className="size-3" />{task.priority}</span>}{task.recurrence && <span className="inline-flex items-center gap-0.5" title={recurrenceLabel(task.recurrence)}><Repeat2 className="size-3" />{recurrenceLabel(task.recurrence)}</span>}</div></div>
+    <div className="flex items-center gap-1.5">{member && <span title={member.displayName} className="grid size-6 place-items-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">{initials(member.displayName)}</span>}</div>
   </div>;
 }
 

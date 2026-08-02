@@ -8,7 +8,6 @@ import { toast } from "sonner";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,7 +52,6 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
   const initialTask = selection.type === "task" && selection.id ? tasks.find((item) => item.id === selection.id) : undefined;
   const initialEvent = selection.type === "event" && selection.id ? events.find((item) => item.id === selection.id) : undefined;
   const [title, setTitle] = useState(initialTask?.title ?? initialEvent?.title ?? "");
-  const [allDay, setAllDay] = useState(initialEvent?.allDay ?? false);
   const [error, setError] = useState("");
   const task = useMemo(() => selection.type === "task" && selection.id ? tasks.find((item) => item.id === selection.id) : undefined, [selection, tasks]);
   const event = useMemo(() => selection.type === "event" && selection.id ? events.find((item) => item.id === selection.id) : undefined, [selection, events]);
@@ -76,9 +74,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
             title,
             date: String(formData.get("date") || ""),
             endDate: String(formData.get("endDate") || ""),
-            allDay,
-            startTime: String(formData.get("startTime") || "") || undefined,
-            endTime: String(formData.get("endTime") || "") || undefined,
+            allDay: true,
             description: String(formData.get("description") || ""),
             location: String(formData.get("location") || ""),
             listId: String(formData.get("listId") || ""),
@@ -125,7 +121,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
           <form action={submit} className="space-y-4">
             <div className="space-y-2"><Label htmlFor="item-title">Title</Label><Input id="item-title" name="title" autoFocus required maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={type === "event" ? "What’s happening?" : "What needs to be done?"} /></div>
             {type === "event" ? (
-              <EventFields event={event} eventParts={eventParts} eventEndParts={eventEndParts} eventEndDate={eventEndDate} fallbackDate={fallbackDate} fallbackTime={selection?.time} allDay={allDay} setAllDay={setAllDay} lists={lists} />
+              <EventFields event={event} eventParts={eventParts} eventEndDate={eventEndDate} fallbackDate={fallbackDate} lists={lists} />
             ) : (
               <TaskFields task={task} taskParts={taskParts} fallbackDate={selection?.date} lists={lists} members={members} />
             )}
@@ -143,24 +139,24 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
   );
 }
 
-function EventFields({ event, eventParts, eventEndParts, eventEndDate, fallbackDate, fallbackTime, allDay, setAllDay, lists }: {
+function EventFields({ event, eventParts, eventEndDate, fallbackDate, lists }: {
   event?: EventView;
   eventParts: { date: string; time: string } | null;
-  eventEndParts: { date: string; time: string } | null;
   eventEndDate: string | null;
   fallbackDate: string;
-  fallbackTime?: string;
-  allDay: boolean;
-  setAllDay: (value: boolean) => void;
   lists: ListView[];
 }) {
-  const start = fallbackTime ?? "09:00";
-  const endHour = Math.min(Number(start.slice(0, 2)) + 1, 23);
+  const [startDate, setStartDate] = useState(eventParts?.date ?? fallbackDate);
+  const [endDate, setEndDate] = useState(eventEndDate ?? fallbackDate);
+
+  function changeStartDate(next: string) {
+    setStartDate(next);
+    if (endDate < next) setEndDate(next);
+  }
+
   return <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-    <div className="space-y-2"><Label htmlFor="event-date">Start date</Label><Input id="event-date" name="date" type="date" required defaultValue={eventParts?.date ?? fallbackDate} /></div>
-    <div className="space-y-2"><Label htmlFor="event-end-date">End date</Label><Input id="event-end-date" name="endDate" type="date" required defaultValue={eventEndDate ?? fallbackDate} /></div>
-    <div className="col-span-full"><Label className="flex min-h-10 cursor-pointer items-center gap-2"><Checkbox checked={allDay} onCheckedChange={(checked) => setAllDay(Boolean(checked))} />All day / no times</Label></div>
-    {!allDay && <><div className="space-y-2"><Label htmlFor="start-time">Starts</Label><Input id="start-time" name="startTime" type="time" required defaultValue={eventParts?.time ?? start} /></div><div className="space-y-2"><Label htmlFor="end-time">Ends</Label><Input id="end-time" name="endTime" type="time" required defaultValue={eventEndParts?.time ?? `${String(endHour).padStart(2, "0")}:00`} /></div></>}
+    <div className="space-y-2"><Label htmlFor="event-date">Start date</Label><Input id="event-date" name="date" type="date" required value={startDate} onChange={(event) => changeStartDate(event.target.value)} /></div>
+    <div className="space-y-2"><Label htmlFor="event-end-date">End date</Label><Input id="event-end-date" name="endDate" type="date" required min={startDate} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div>
     <div className="space-y-2"><Label htmlFor="location">Location</Label><Input id="location" name="location" defaultValue={event?.location ?? ""} placeholder="Optional" /></div>
     <SelectField label="Category" name="listId" defaultValue={event?.listId ?? "uncategorized"} options={[{ value: "uncategorized", label: "Uncategorized", color: "#64748b" }, ...lists.map((list) => ({ value: list.id, label: list.name, color: list.color }))]} transformValue={(value) => value === "uncategorized" ? "" : value} />
     <RecurrenceFields rule={event?.recurrence ?? null} baseDate={eventParts?.date ?? fallbackDate} />
