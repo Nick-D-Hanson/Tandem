@@ -4,7 +4,7 @@ import { eventSchema, listSchema, taskSchema, workspaceSchema } from "@/lib/vali
 
 describe("mutation validation", () => {
   it("rejects an event whose end is before its start", () => {
-    const result = eventSchema.safeParse({ title: "Dinner", date: "2026-08-02", allDay: false, startTime: "19:00", endTime: "18:00", color: "blue", recurrence: null });
+    const result = eventSchema.safeParse({ title: "Dinner", date: "2026-08-02", endDate: "2026-08-02", allDay: false, startTime: "19:00", endTime: "18:00", listId: "", recurrence: null });
     expect(result.success).toBe(false);
   });
 
@@ -19,7 +19,17 @@ describe("mutation validation", () => {
   });
 
   it("rejects recurrence end dates before the first occurrence", () => {
-    const result = eventSchema.safeParse({ title: "Birthday", date: "2026-08-02", allDay: true, color: "blue", recurrence: { frequency: "yearly", interval: 1, until: "2025-08-02" } });
+    const result = eventSchema.safeParse({ title: "Birthday", date: "2026-08-02", endDate: "2026-08-02", allDay: true, listId: "", recurrence: { frequency: "yearly", interval: 1, until: "2025-08-02" } });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a multi-day event without times", () => {
+    const result = eventSchema.safeParse({ title: "Vacation", date: "2026-08-02", endDate: "2026-08-08", allDay: true, listId: "", recurrence: null });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a multi-day event whose end date is before its start", () => {
+    const result = eventSchema.safeParse({ title: "Trip", date: "2026-08-08", endDate: "2026-08-02", allDay: true, listId: "", recurrence: null });
     expect(result.success).toBe(false);
   });
 

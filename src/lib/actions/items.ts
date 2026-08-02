@@ -122,8 +122,8 @@ export async function saveEventAction(input: unknown): Promise<ActionResult<{ id
     const category = await getCategory(membership.workspaceId, value.listId || undefined);
     const startAt = localDateTimeToUtc({ date: value.date, time: value.allDay ? null : value.startTime }, timezone);
     const endAt = value.allDay
-      ? localDateTimeToUtc({ date: dateKey(addDays(localDate(value.date), 1)), time: null }, timezone)
-      : localDateTimeToUtc({ date: value.date, time: value.endTime }, timezone);
+      ? localDateTimeToUtc({ date: dateKey(addDays(localDate(value.endDate), 1)), time: null }, timezone)
+      : localDateTimeToUtc({ date: value.endDate, time: value.endTime }, timezone);
     const data = {
       title: value.title,
       description: value.description || null,

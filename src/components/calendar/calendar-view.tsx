@@ -1,10 +1,10 @@
 "use client";
 
-import { addDays, addMonths, format, isSameMonth, isToday, subDays } from "date-fns";
+import { addDays, addMonths, differenceInCalendarDays, format, isSameMonth, isToday, subDays } from "date-fns";
 import { CalendarCheck2, Clock3, MapPin } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { dateKey, monthCalendarRange, utcToLocalParts, weekCalendarRange } from "@/lib/dates/timezone";
+import { dateKey, localDate, monthCalendarRange, utcToLocalParts, weekCalendarRange } from "@/lib/dates/timezone";
 import { recurrenceMatchesDate } from "@/lib/recurrence";
 import type { EventView, ListView, TaskView } from "@/lib/types";
 
@@ -37,15 +37,24 @@ export function CalendarView({ mode, anchor, timezone, tasks, events, lists, onS
   return <MonthView anchor={anchor} timezone={timezone} tasks={tasks} events={events} lists={lists} onSelect={onSelect} />;
 }
 
-function occurrenceOnDate(event: EventView, targetDate: string, timezone: string) {
+function occurrenceStartOnDate(event: EventView, targetDate: string, timezone: string) {
   const base = utcToLocalParts(event.startAt, timezone).date;
-  return recurrenceMatchesDate(base, targetDate, event.recurrence);
+  const storedEnd = utcToLocalParts(event.endAt, timezone).date;
+  const inclusiveEnd = event.allDay ? dateKey(addDays(localDate(storedEnd), -1)) : storedEnd;
+  const duration = Math.max(0, differenceInCalendarDays(localDate(inclusiveEnd), localDate(base)));
+  for (let offset = 0; offset <= duration; offset += 1) {
+    const possibleStart = dateKey(addDays(localDate(targetDate), -offset));
+    if (recurrenceMatchesDate(base, possibleStart, event.recurrence)) return possibleStart;
+  }
+  return null;
 }
 
 function itemsForDate(date: string, timezone: string, tasks: TaskView[], events: EventView[], lists: ListView[]): CalendarItem[] {
-  const eventItems = events.filter((event) => occurrenceOnDate(event, date, timezone)).map((event) => {
+  const eventItems = events.flatMap((event) => {
+    const occurrenceStart = occurrenceStartOnDate(event, date, timezone);
+    if (!occurrenceStart) return [];
     const parts = utcToLocalParts(event.startAt, timezone);
-    return { id: event.id, type: "event" as const, title: event.title, date, time: event.allDay ? null : parts.time, allDay: event.allDay, completed: false, location: event.location, color: calendarColor(event.color) };
+    return [{ id: event.id, type: "event" as const, title: event.title, date, time: event.allDay || occurrenceStart !== date ? null : parts.time, allDay: event.allDay || occurrenceStart !== date, completed: false, location: event.location, color: calendarColor(event.color) }];
   });
   const taskItems = tasks.filter((task) => task.dueAt && utcToLocalParts(task.dueAt, timezone).date === date).map((task) => {
     const parts = utcToLocalParts(task.dueAt!, timezone);

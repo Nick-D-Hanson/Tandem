@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { CalendarDays, ListChecks, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteEventAction, deleteTaskAction, saveEventAction, saveTaskAction } from "@/lib/actions/items";
-import { dateKey, utcToLocalParts } from "@/lib/dates/timezone";
+import { dateKey, localDate, utcToLocalParts } from "@/lib/dates/timezone";
 import type { RecurrenceFrequency, RecurrenceRule } from "@/lib/recurrence";
 import type { CalendarSelection } from "@/components/calendar/calendar-view";
 import type { EventView, ListView, MemberView, TaskView } from "@/lib/types";
@@ -62,6 +62,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
   const fallbackDate = selection.date ?? dateKey(new Date());
   const eventParts = event ? utcToLocalParts(event.startAt, timezone) : null;
   const eventEndParts = event ? utcToLocalParts(event.endAt, timezone) : null;
+  const eventEndDate = eventEndParts ? (event?.allDay ? dateKey(addDays(localDate(eventEndParts.date), -1)) : eventEndParts.date) : null;
   const taskParts = task?.dueAt ? utcToLocalParts(task.dueAt, timezone) : null;
   const creator = members.find((member) => member.userId === (task?.createdBy ?? event?.createdBy));
   const updater = members.find((member) => member.userId === (task?.updatedBy ?? event?.updatedBy));
@@ -74,6 +75,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
             id: event?.id,
             title,
             date: String(formData.get("date") || ""),
+            endDate: String(formData.get("endDate") || ""),
             allDay,
             startTime: String(formData.get("startTime") || "") || undefined,
             endTime: String(formData.get("endTime") || "") || undefined,
@@ -87,11 +89,9 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
             title,
             notes: String(formData.get("notes") || ""),
             dueDate: String(formData.get("dueDate") || ""),
-            dueTime: String(formData.get("dueTime") || ""),
             assigneeUserId: String(formData.get("assigneeUserId") || ""),
             listId: String(formData.get("listId") || ""),
             priority: String(formData.get("priority") || "none"),
-            recurrence: recurrenceFromFormData(formData),
           });
       if (!result.ok) return setError(result.error);
       toast.success(`${type === "event" ? "Event" : "Task"} saved`, { description: title });
@@ -125,7 +125,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
           <form action={submit} className="space-y-4">
             <div className="space-y-2"><Label htmlFor="item-title">Title</Label><Input id="item-title" name="title" autoFocus required maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={type === "event" ? "What’s happening?" : "What needs to be done?"} /></div>
             {type === "event" ? (
-              <EventFields event={event} eventParts={eventParts} eventEndParts={eventEndParts} fallbackDate={fallbackDate} fallbackTime={selection?.time} allDay={allDay} setAllDay={setAllDay} lists={lists} />
+              <EventFields event={event} eventParts={eventParts} eventEndParts={eventEndParts} eventEndDate={eventEndDate} fallbackDate={fallbackDate} fallbackTime={selection?.time} allDay={allDay} setAllDay={setAllDay} lists={lists} />
             ) : (
               <TaskFields task={task} taskParts={taskParts} fallbackDate={selection?.date} lists={lists} members={members} />
             )}
@@ -143,10 +143,11 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
   );
 }
 
-function EventFields({ event, eventParts, eventEndParts, fallbackDate, fallbackTime, allDay, setAllDay, lists }: {
+function EventFields({ event, eventParts, eventEndParts, eventEndDate, fallbackDate, fallbackTime, allDay, setAllDay, lists }: {
   event?: EventView;
   eventParts: { date: string; time: string } | null;
   eventEndParts: { date: string; time: string } | null;
+  eventEndDate: string | null;
   fallbackDate: string;
   fallbackTime?: string;
   allDay: boolean;
@@ -156,8 +157,9 @@ function EventFields({ event, eventParts, eventEndParts, fallbackDate, fallbackT
   const start = fallbackTime ?? "09:00";
   const endHour = Math.min(Number(start.slice(0, 2)) + 1, 23);
   return <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-    <div className="space-y-2"><Label htmlFor="event-date">Date</Label><Input id="event-date" name="date" type="date" required defaultValue={eventParts?.date ?? fallbackDate} /></div>
-    <div className="flex items-end pb-2"><Label className="flex min-h-10 cursor-pointer items-center gap-2"><Checkbox checked={allDay} onCheckedChange={(checked) => setAllDay(Boolean(checked))} />All day</Label></div>
+    <div className="space-y-2"><Label htmlFor="event-date">Start date</Label><Input id="event-date" name="date" type="date" required defaultValue={eventParts?.date ?? fallbackDate} /></div>
+    <div className="space-y-2"><Label htmlFor="event-end-date">End date</Label><Input id="event-end-date" name="endDate" type="date" required defaultValue={eventEndDate ?? fallbackDate} /></div>
+    <div className="col-span-full"><Label className="flex min-h-10 cursor-pointer items-center gap-2"><Checkbox checked={allDay} onCheckedChange={(checked) => setAllDay(Boolean(checked))} />All day / no times</Label></div>
     {!allDay && <><div className="space-y-2"><Label htmlFor="start-time">Starts</Label><Input id="start-time" name="startTime" type="time" required defaultValue={eventParts?.time ?? start} /></div><div className="space-y-2"><Label htmlFor="end-time">Ends</Label><Input id="end-time" name="endTime" type="time" required defaultValue={eventEndParts?.time ?? `${String(endHour).padStart(2, "0")}:00`} /></div></>}
     <div className="space-y-2"><Label htmlFor="location">Location</Label><Input id="location" name="location" defaultValue={event?.location ?? ""} placeholder="Optional" /></div>
     <SelectField label="Category" name="listId" defaultValue={event?.listId ?? "uncategorized"} options={[{ value: "uncategorized", label: "Uncategorized", color: "#64748b" }, ...lists.map((list) => ({ value: list.id, label: list.name, color: list.color }))]} transformValue={(value) => value === "uncategorized" ? "" : value} />
@@ -168,12 +170,10 @@ function EventFields({ event, eventParts, eventEndParts, fallbackDate, fallbackT
 
 function TaskFields({ task, taskParts, fallbackDate, lists, members }: { task?: TaskView; taskParts: { date: string; time: string } | null; fallbackDate?: string; lists: ListView[]; members: MemberView[] }) {
   return <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-    <div className="space-y-2"><Label htmlFor="due-date">Due date</Label><Input id="due-date" name="dueDate" type="date" defaultValue={taskParts?.date ?? fallbackDate ?? ""} /></div>
-    <div className="space-y-2"><Label htmlFor="due-time">Due time</Label><Input id="due-time" name="dueTime" type="time" defaultValue={!task?.dueIsAllDay ? taskParts?.time : ""} /></div>
+    <div className="col-span-full space-y-2"><Label htmlFor="due-date">Due date</Label><Input id="due-date" name="dueDate" type="date" defaultValue={taskParts?.date ?? fallbackDate ?? ""} /></div>
     <SelectField label="Category" name="listId" defaultValue={task?.listId ?? "inbox"} options={[{ value: "inbox", label: "Inbox", color: "#64748b" }, ...lists.map((list) => ({ value: list.id, label: list.name, color: list.color }))]} transformValue={(value) => value === "inbox" ? "" : value} />
     <SelectField label="Assignee" name="assigneeUserId" defaultValue={task?.assigneeUserId ?? "unassigned"} options={[{ value: "unassigned", label: "Unassigned / shared" }, ...members.map((member) => ({ value: member.userId, label: member.displayName }))]} transformValue={(value) => value === "unassigned" ? "" : value} />
     <SelectField label="Priority" name="priority" defaultValue={task?.priority ?? "none"} options={[{ value: "none", label: "None" }, { value: "low", label: "Low" }, { value: "medium", label: "Medium" }, { value: "high", label: "High" }]} />
-    <RecurrenceFields rule={task?.recurrence ?? null} baseDate={taskParts?.date ?? fallbackDate ?? dateKey(new Date())} />
     <div className="col-span-full space-y-2"><Label htmlFor="notes">Notes</Label><Textarea id="notes" name="notes" defaultValue={task?.notes ?? ""} placeholder="Optional notes" /></div>
   </div>;
 }

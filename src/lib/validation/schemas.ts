@@ -22,6 +22,7 @@ export const eventSchema = z
     id: uuid.optional(),
     title: z.string().trim().min(1, "Title is required").max(120),
     date: dateString,
+    endDate: dateString,
     allDay: z.boolean(),
     startTime: timeString.optional(),
     endTime: timeString.optional(),
@@ -31,10 +32,13 @@ export const eventSchema = z
     recurrence: recurrenceSchema,
   })
   .superRefine((value, context) => {
+    if (value.endDate < value.date) {
+      context.addIssue({ code: "custom", message: "End date cannot be before start date", path: ["endDate"] });
+    }
     if (!value.allDay && (!value.startTime || !value.endTime)) {
       context.addIssue({ code: "custom", message: "Start and end times are required", path: ["startTime"] });
     }
-    if (!value.allDay && value.startTime && value.endTime && value.endTime <= value.startTime) {
+    if (!value.allDay && value.date === value.endDate && value.startTime && value.endTime && value.endTime <= value.startTime) {
       context.addIssue({ code: "custom", message: "End time must be after start time", path: ["endTime"] });
     }
     if (value.recurrence?.until && value.recurrence.until < value.date) {
