@@ -31,7 +31,7 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
 }) {
   const router = useRouter();
   const [completionOverrides, setCompletionOverrides] = useState<Record<string, string | null>>({});
-  const [grouping, setGrouping] = useState<TaskGrouping>("creator");
+  const [grouping, setGrouping] = useState<TaskGrouping>("category");
   const [creatorId, setCreatorId] = useState<"all" | string>("all");
   const tasks = serverTasks.map((task) => Object.hasOwn(completionOverrides, task.id) ? { ...task, completedAt: completionOverrides[task.id] } : task);
   const today = dateKey(zonedNow(timezone));
