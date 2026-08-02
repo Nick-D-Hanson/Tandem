@@ -24,6 +24,13 @@ async function validateRelations(workspaceId: string, listId?: string, assigneeU
   }
 }
 
+async function getCategory(workspaceId: string, listId?: string) {
+  if (!listId) return null;
+  const [category] = await db.select({ id: taskLists.id, color: taskLists.color }).from(taskLists).where(and(eq(taskLists.id, listId), eq(taskLists.workspaceId, workspaceId))).limit(1);
+  if (!category) throw new Error("NOT_FOUND");
+  return category;
+}
+
 export async function saveTaskAction(input: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = taskSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
@@ -112,6 +119,7 @@ export async function saveEventAction(input: unknown): Promise<ActionResult<{ id
     const { user, membership } = await requireWorkspace();
     const timezone = await getWorkspaceTimezone(membership.workspaceId);
     const value = parsed.data;
+    const category = await getCategory(membership.workspaceId, value.listId || undefined);
     const startAt = localDateTimeToUtc({ date: value.date, time: value.allDay ? null : value.startTime }, timezone);
     const endAt = value.allDay
       ? localDateTimeToUtc({ date: dateKey(addDays(localDate(value.date), 1)), time: null }, timezone)
@@ -120,10 +128,11 @@ export async function saveEventAction(input: unknown): Promise<ActionResult<{ id
       title: value.title,
       description: value.description || null,
       location: value.location || null,
+      listId: category?.id ?? null,
       startAt,
       endAt,
       allDay: value.allDay,
-      color: value.color,
+      color: category?.color ?? "#64748b",
       recurrence: serializeRecurrence(value.recurrence),
       updatedBy: user.id,
       updatedAt: new Date(),

@@ -119,6 +119,7 @@ export const events = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    listId: uuid("list_id").references(() => taskLists.id, { onDelete: "set null" }),
     title: text("title").notNull(),
     description: text("description"),
     location: text("location"),
@@ -134,6 +135,7 @@ export const events = pgTable(
   (table) => [
     check("events_time_order_check", sql`${table.endAt} > ${table.startAt}`),
     index("events_workspace_start_end_idx").on(table.workspaceId, table.startAt, table.endAt),
+    index("events_workspace_list_idx").on(table.workspaceId, table.listId),
   ],
 );
 

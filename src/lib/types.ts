@@ -32,13 +32,14 @@ export type TaskView = {
 
 export type EventView = {
   id: string;
+  listId: string | null;
   title: string;
   description: string | null;
   location: string | null;
   startAt: string;
   endAt: string;
   allDay: boolean;
-  color: "blue" | "violet" | "teal" | "amber" | "rose";
+  color: string;
   recurrence: RecurrenceRule | null;
   createdBy: string;
   updatedBy: string;

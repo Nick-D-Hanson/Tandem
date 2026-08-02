@@ -27,7 +27,7 @@ export const eventSchema = z
     endTime: timeString.optional(),
     description: optionalText,
     location: z.string().trim().max(240).optional().or(z.literal("")),
-    color: z.enum(["blue", "violet", "teal", "amber", "rose"]),
+    listId: uuid.optional().or(z.literal("")),
     recurrence: recurrenceSchema,
   })
   .superRefine((value, context) => {

@@ -15,6 +15,13 @@
       "when": 1785703948127,
       "tag": "0001_loud_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785704656126,
+      "tag": "0002_last_star_brand",
+      "breakpoints": true
     }
   ]
 }

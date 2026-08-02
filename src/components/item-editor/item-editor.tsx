@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Loader2, Trash2 } from "lucide-react";
+import { CalendarDays, ListChecks, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteEventAction, deleteTaskAction, saveEventAction, saveTaskAction } from "@/lib/actions/items";
-import { EVENT_COLORS } from "@/lib/constants";
 import { dateKey, utcToLocalParts } from "@/lib/dates/timezone";
 import type { RecurrenceFrequency, RecurrenceRule } from "@/lib/recurrence";
 import type { CalendarSelection } from "@/components/calendar/calendar-view";
@@ -80,7 +79,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
             endTime: String(formData.get("endTime") || "") || undefined,
             description: String(formData.get("description") || ""),
             location: String(formData.get("location") || ""),
-            color: String(formData.get("color") || "blue"),
+            listId: String(formData.get("listId") || ""),
             recurrence: recurrenceFromFormData(formData),
           })
         : await saveTaskAction({
@@ -117,11 +116,16 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[560px] max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:border-b-0">
           <DialogHeader><DialogTitle>{isEditing ? `Edit ${type}` : "Add item"}</DialogTitle><DialogDescription>Shared with both workspace members.</DialogDescription></DialogHeader>
-          <Tabs value={type} onValueChange={(value) => setType(value as "event" | "task")}><TabsList className="grid w-full grid-cols-2"><TabsTrigger value="event" disabled={isEditing && type === "task"}>Event</TabsTrigger><TabsTrigger value="task" disabled={isEditing && type === "event"}>Task</TabsTrigger></TabsList></Tabs>
+          <Tabs value={type} onValueChange={(value) => setType(value as "event" | "task")}>
+            <TabsList className="grid h-11 w-full grid-cols-2 gap-2 bg-transparent p-0">
+              <TabsTrigger value="event" disabled={isEditing && type === "task"} className="h-full rounded-lg border bg-background text-sm font-semibold data-[state=active]:border-event data-[state=active]:bg-event data-[state=active]:text-white data-[state=active]:shadow-md dark:data-[state=active]:text-slate-950"><CalendarDays className="size-4" />Event</TabsTrigger>
+              <TabsTrigger value="task" disabled={isEditing && type === "event"} className="h-full rounded-lg border bg-background text-sm font-semibold data-[state=active]:border-task data-[state=active]:bg-task data-[state=active]:text-white data-[state=active]:shadow-md dark:data-[state=active]:text-slate-950"><ListChecks className="size-4" />Task</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <form action={submit} className="space-y-4">
             <div className="space-y-2"><Label htmlFor="item-title">Title</Label><Input id="item-title" name="title" autoFocus required maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={type === "event" ? "What’s happening?" : "What needs to be done?"} /></div>
             {type === "event" ? (
-              <EventFields event={event} eventParts={eventParts} eventEndParts={eventEndParts} fallbackDate={fallbackDate} fallbackTime={selection?.time} allDay={allDay} setAllDay={setAllDay} />
+              <EventFields event={event} eventParts={eventParts} eventEndParts={eventEndParts} fallbackDate={fallbackDate} fallbackTime={selection?.time} allDay={allDay} setAllDay={setAllDay} lists={lists} />
             ) : (
               <TaskFields task={task} taskParts={taskParts} fallbackDate={selection?.date} lists={lists} members={members} />
             )}
@@ -139,7 +143,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
   );
 }
 
-function EventFields({ event, eventParts, eventEndParts, fallbackDate, fallbackTime, allDay, setAllDay }: {
+function EventFields({ event, eventParts, eventEndParts, fallbackDate, fallbackTime, allDay, setAllDay, lists }: {
   event?: EventView;
   eventParts: { date: string; time: string } | null;
   eventEndParts: { date: string; time: string } | null;
@@ -147,6 +151,7 @@ function EventFields({ event, eventParts, eventEndParts, fallbackDate, fallbackT
   fallbackTime?: string;
   allDay: boolean;
   setAllDay: (value: boolean) => void;
+  lists: ListView[];
 }) {
   const start = fallbackTime ?? "09:00";
   const endHour = Math.min(Number(start.slice(0, 2)) + 1, 23);
@@ -155,8 +160,8 @@ function EventFields({ event, eventParts, eventEndParts, fallbackDate, fallbackT
     <div className="flex items-end pb-2"><Label className="flex min-h-10 cursor-pointer items-center gap-2"><Checkbox checked={allDay} onCheckedChange={(checked) => setAllDay(Boolean(checked))} />All day</Label></div>
     {!allDay && <><div className="space-y-2"><Label htmlFor="start-time">Starts</Label><Input id="start-time" name="startTime" type="time" required defaultValue={eventParts?.time ?? start} /></div><div className="space-y-2"><Label htmlFor="end-time">Ends</Label><Input id="end-time" name="endTime" type="time" required defaultValue={eventEndParts?.time ?? `${String(endHour).padStart(2, "0")}:00`} /></div></>}
     <div className="space-y-2"><Label htmlFor="location">Location</Label><Input id="location" name="location" defaultValue={event?.location ?? ""} placeholder="Optional" /></div>
+    <SelectField label="Category" name="listId" defaultValue={event?.listId ?? "uncategorized"} options={[{ value: "uncategorized", label: "Uncategorized", color: "#64748b" }, ...lists.map((list) => ({ value: list.id, label: list.name, color: list.color }))]} transformValue={(value) => value === "uncategorized" ? "" : value} />
     <RecurrenceFields rule={event?.recurrence ?? null} baseDate={eventParts?.date ?? fallbackDate} />
-    <SelectField label="Color" name="color" defaultValue={event?.color ?? "blue"} options={EVENT_COLORS.map((item) => ({ value: item.value, label: item.label }))} />
     <div className="col-span-full space-y-2"><Label htmlFor="description">Details</Label><Textarea id="description" name="description" defaultValue={event?.description ?? ""} placeholder="Optional notes" /></div>
   </div>;
 }
@@ -165,7 +170,7 @@ function TaskFields({ task, taskParts, fallbackDate, lists, members }: { task?: 
   return <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
     <div className="space-y-2"><Label htmlFor="due-date">Due date</Label><Input id="due-date" name="dueDate" type="date" defaultValue={taskParts?.date ?? fallbackDate ?? ""} /></div>
     <div className="space-y-2"><Label htmlFor="due-time">Due time</Label><Input id="due-time" name="dueTime" type="time" defaultValue={!task?.dueIsAllDay ? taskParts?.time : ""} /></div>
-    <SelectField label="List" name="listId" defaultValue={task?.listId ?? "inbox"} options={[{ value: "inbox", label: "Inbox" }, ...lists.map((list) => ({ value: list.id, label: list.name }))]} transformValue={(value) => value === "inbox" ? "" : value} />
+    <SelectField label="Category" name="listId" defaultValue={task?.listId ?? "inbox"} options={[{ value: "inbox", label: "Inbox", color: "#64748b" }, ...lists.map((list) => ({ value: list.id, label: list.name, color: list.color }))]} transformValue={(value) => value === "inbox" ? "" : value} />
     <SelectField label="Assignee" name="assigneeUserId" defaultValue={task?.assigneeUserId ?? "unassigned"} options={[{ value: "unassigned", label: "Unassigned / shared" }, ...members.map((member) => ({ value: member.userId, label: member.displayName }))]} transformValue={(value) => value === "unassigned" ? "" : value} />
     <SelectField label="Priority" name="priority" defaultValue={task?.priority ?? "none"} options={[{ value: "none", label: "None" }, { value: "low", label: "Low" }, { value: "medium", label: "Medium" }, { value: "high", label: "High" }]} />
     <RecurrenceFields rule={task?.recurrence ?? null} baseDate={taskParts?.date ?? fallbackDate ?? dateKey(new Date())} />
@@ -224,7 +229,7 @@ function RecurrenceFields({ rule, baseDate }: { rule: RecurrenceRule | null; bas
   </div>;
 }
 
-function SelectField({ label, name, defaultValue, options, transformValue }: { label: string; name: string; defaultValue: string; options: { value: string; label: string }[]; transformValue?: (value: string) => string }) {
+function SelectField({ label, name, defaultValue, options, transformValue }: { label: string; name: string; defaultValue: string; options: { value: string; label: string; color?: string }[]; transformValue?: (value: string) => string }) {
   const [value, setValue] = useState(defaultValue);
-  return <div className="space-y-2"><Label>{label}</Label><input type="hidden" name={name} value={transformValue ? transformValue(value) : value} /><Select value={value} onValueChange={setValue}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select></div>;
+  return <div className="space-y-2"><Label>{label}</Label><input type="hidden" name={name} value={transformValue ? transformValue(value) : value} /><Select value={value} onValueChange={setValue}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.color ? <span className="flex items-center gap-2"><span className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: option.color }} />{option.label}</span> : option.label}</SelectItem>)}</SelectContent></Select></div>;
 }
