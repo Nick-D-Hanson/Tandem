@@ -14,7 +14,7 @@ export default async function AppPage({ searchParams }: { searchParams: Promise<
     if (error instanceof Error && error.message === "WORKSPACE_REQUIRED") redirect("/onboarding");
     throw error;
   }
-  const view = ["month", "week", "agenda"].includes(query.view ?? "") ? query.view as "month" | "week" | "agenda" : "month";
+  const view = ["today", "month", "week", "quarter", "events", "agenda"].includes(query.view ?? "") ? query.view as "today" | "month" | "week" | "quarter" | "events" | "agenda" : "month";
   const date = /^\d{4}-\d{2}-\d{2}$/.test(query.date ?? "") ? query.date : undefined;
   if (date) localDate(date!); // Validate parsing before passing to the client.
   return <TandemApp data={data} initialView={view} initialDate={date} />;

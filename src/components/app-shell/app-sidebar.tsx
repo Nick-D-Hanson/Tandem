@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, CheckCircle2, Clock3, Copy, Inbox, ListChecks, Loader2, Moon, MoreHorizontal, Plus, Settings, Sun, Trash2 } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, Copy, Inbox, ListChecks, Loader2, Moon, MoreHorizontal, PanelLeftClose, Plus, Settings, Sun, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useState, useTransition } from "react";
@@ -23,7 +23,7 @@ import { absoluteInviteUrl } from "@/lib/invites";
 import type { ListView, MemberView, TaskView, WorkspaceView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter, onAdd, onShowTasks, onNavigate }: {
+export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter, onAdd, onShowTasks, onNavigate, onCollapse }: {
   workspace: WorkspaceView;
   members: MemberView[];
   lists: ListView[];
@@ -33,6 +33,7 @@ export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter,
   onAdd: () => void;
   onShowTasks: () => void;
   onNavigate?: () => void;
+  onCollapse?: () => void;
 }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [pending, startTransition] = useTransition();
@@ -73,7 +74,7 @@ export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter,
   return (
     <>
       <div className="flex h-full min-h-0 flex-col gap-3.5 overflow-y-auto p-3">
-        <div className="flex items-center justify-between px-1"><Brand /><Button variant="ghost" size="icon-sm" aria-label="Toggle dark mode" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>{resolvedTheme === "dark" ? <Sun /> : <Moon />}</Button></div>
+        <div className="flex min-h-9 items-center justify-between gap-1 px-1"><Brand /><div className="flex items-center gap-0.5"><Button variant="ghost" size="icon-sm" aria-label="Toggle dark mode" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>{resolvedTheme === "dark" ? <Sun /> : <Moon />}</Button>{onCollapse && <Button variant="ghost" size="icon-sm" className="max-[820px]:hidden" aria-label="Hide navigation sidebar" onClick={onCollapse}><PanelLeftClose /></Button>}</div></div>
         <Button className="justify-start" onClick={onAdd}><Plus />Add item</Button>
         <nav className="grid gap-1" aria-label="Primary">
           <NavButton active={filter === "all"} icon={CalendarDays} label="Calendar" onClick={() => { onFilter("all"); onNavigate?.(); }} />

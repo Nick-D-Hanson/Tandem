@@ -1,11 +1,12 @@
 "use client";
 
-import { CheckCircle2, ChevronDown, ChevronUp, CircleAlert, Flag, ListTodo, Plus, Repeat2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, CircleAlert, Flag, ListTodo, PanelRightClose, Plus, Repeat2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { ItemHoverDetails } from "@/components/items/item-hover-details";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -19,7 +20,7 @@ export type TaskFilter = "all" | "inbox" | "today" | "upcoming" | "completed" | 
 type TaskGrouping = "creator" | "category";
 type TaskSectionData = { key: string; title: string; tasks: TaskView[]; color?: string };
 
-export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter, onEdit, onAdd, className }: {
+export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter, onEdit, onAdd, onClose, className }: {
   tasks: TaskView[];
   lists: ListView[];
   members: MemberView[];
@@ -27,6 +28,7 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
   filter: TaskFilter;
   onEdit: (id: string) => void;
   onAdd: () => void;
+  onClose?: () => void;
   className?: string;
 }) {
   const router = useRouter();
@@ -77,7 +79,7 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
 
   return (
     <aside className={cn("flex min-h-0 flex-col overflow-hidden border-l bg-card/95", className)} aria-label="Task agenda" data-testid="task-panel">
-      <header className="grid gap-2 border-b p-3"><div className="flex items-start justify-between gap-2"><div><h2 className="font-semibold tracking-tight">Tasks</h2><p className="text-xs text-muted-foreground">{taskViewLabel(filter, lists)}</p></div><ToggleGroup type="single" value={grouping} onValueChange={(value) => value && setGrouping(value as TaskGrouping)} variant="outline" size="sm" spacing={0} aria-label="Group tasks by"><ToggleGroupItem value="category" className="h-7 px-2 text-xs">Category</ToggleGroupItem><ToggleGroupItem value="creator" className="h-7 px-2 text-xs">Creator</ToggleGroupItem></ToggleGroup></div>{grouping === "creator" && <div className="flex flex-wrap gap-1" role="group" aria-label="Filter tasks by creator"><Button type="button" size="sm" variant={creatorId === "all" ? "default" : "outline"} className="h-7 px-2.5 text-xs" onClick={() => setCreatorId("all")}>All creators</Button>{members.map((member) => <Button key={member.userId} type="button" size="sm" variant={creatorId === member.userId ? "default" : "outline"} className="h-7 min-w-0 px-2.5 text-xs" onClick={() => setCreatorId(member.userId)}><span className="grid size-4 shrink-0 place-items-center rounded-full bg-background/20 text-[8px] font-bold">{initials(member.displayName)}</span><span className="max-w-20 truncate">{member.displayName}</span></Button>)}</div>}</header>
+      <header className="grid gap-2 border-b p-3"><div className="flex items-start justify-between gap-2"><div><h2 className="font-semibold tracking-tight">Tasks</h2><p className="text-xs text-muted-foreground">{taskViewLabel(filter, lists)}</p></div><div className="flex items-center gap-1"><ToggleGroup type="single" value={grouping} onValueChange={(value) => value && setGrouping(value as TaskGrouping)} variant="outline" size="sm" spacing={0} aria-label="Group tasks by"><ToggleGroupItem value="category" className="h-7 px-2 text-xs">Category</ToggleGroupItem><ToggleGroupItem value="creator" className="h-7 px-2 text-xs">Creator</ToggleGroupItem></ToggleGroup>{onClose && <Button variant="ghost" size="icon-sm" aria-label="Hide tasks sidebar" onClick={onClose}><PanelRightClose /></Button>}</div></div>{grouping === "creator" && <div className="flex flex-wrap gap-1" role="group" aria-label="Filter tasks by creator"><Button type="button" size="sm" variant={creatorId === "all" ? "default" : "outline"} className="h-7 px-2.5 text-xs" onClick={() => setCreatorId("all")}>All creators</Button>{members.map((member) => <Button key={member.userId} type="button" size="sm" variant={creatorId === member.userId ? "default" : "outline"} className="h-7 min-w-0 px-2.5 text-xs" onClick={() => setCreatorId(member.userId)}><span className="grid size-4 shrink-0 place-items-center rounded-full bg-background/20 text-[8px] font-bold">{initials(member.displayName)}</span><span className="max-w-20 truncate">{member.displayName}</span></Button>)}</div>}</header>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <ScrollArea className="h-full"><div className="space-y-5 p-3 pb-24">
           {visibleTasks.length === 0 && <div className="grid place-items-center gap-2 py-16 text-center text-muted-foreground"><ListTodo className="size-9" /><p className="text-sm font-medium">Nothing here yet</p><p className="max-w-52 text-xs">Add a shared task or choose another view.</p></div>}
@@ -149,11 +151,11 @@ function TaskRow({ task, list, member, timezone, onEdit, onToggle }: { task: Tas
   const due = task.dueAt ? utcToLocalParts(task.dueAt, timezone) : null;
   const dueLabel = due ? formatDueDate(due.date, due.time, task.dueIsAllDay, dateKey(zonedNow(timezone))) : list?.name ?? "Inbox";
   const categoryColor = list?.color ?? "#64748b";
-  return <div role="button" tabIndex={0} onClick={() => onEdit(task.id)} onKeyDown={(event) => { if (event.key === "Enter") onEdit(task.id); }} className="grid cursor-pointer grid-cols-[22px_1fr_auto] items-start gap-2 rounded-lg border border-l-[3px] border-transparent p-2 hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" style={{ borderLeftColor: categoryColor, backgroundColor: `color-mix(in srgb, ${categoryColor} 8%, transparent)` }} data-testid={`task-${task.id}`}>
+  return <ItemHoverDetails title={task.title} description={task.notes} meta={dueLabel}><div role="button" tabIndex={0} onClick={() => onEdit(task.id)} onKeyDown={(event) => { if (event.key === "Enter") onEdit(task.id); }} className="grid cursor-pointer grid-cols-[22px_1fr_auto] items-start gap-2 rounded-lg border border-l-[3px] border-transparent p-2 hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" style={{ borderLeftColor: categoryColor, backgroundColor: `color-mix(in srgb, ${categoryColor} 8%, transparent)` }} data-testid={`task-${task.id}`}>
     <Checkbox checked={Boolean(task.completedAt)} onCheckedChange={(checked) => onToggle(task, Boolean(checked))} onClick={(event) => event.stopPropagation()} aria-label={`${task.completedAt ? "Reopen" : "Complete"} ${task.title}`} className="mt-0.5" />
     <div className="min-w-0"><div className={cn("truncate text-sm font-medium", task.completedAt && "text-muted-foreground line-through")}>{task.title}</div><div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground"><span>{dueLabel}</span>{due && list && <span className="inline-flex items-center gap-1">• <span className="size-2 rounded-full" style={{ backgroundColor: categoryColor }} />{list.name}</span>}{task.priority !== "none" && <span className="inline-flex items-center gap-0.5 capitalize"><Flag className="size-3" />{task.priority}</span>}{task.recurrence && <span className="inline-flex items-center gap-0.5" title={recurrenceLabel(task.recurrence)}><Repeat2 className="size-3" />{recurrenceLabel(task.recurrence)}</span>}</div></div>
     <div className="flex items-center gap-1.5">{member && <span title={member.displayName} className="grid size-6 place-items-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">{initials(member.displayName)}</span>}</div>
-  </div>;
+  </div></ItemHoverDetails>;
 }
 
 function formatDueDate(date: string, time: string, allDay: boolean, today: string) {

@@ -21,7 +21,7 @@ The application currently provides:
 - Account creation, sign-in, password reset, and session management through Neon Auth.
 - One shared workspace per user, with a strict two-member maximum.
 - Secure seven-day invitation links for adding the second member.
-- Shared Month, Week, and Agenda calendar views.
+- Shared Month, Week, 3 Month, Future Events, and Agenda calendar views.
 - Date-only single-day and multi-day Events.
 - Custom recurring Events, including daily, weekly, monthly, annual, interval-based, selected-weekday, and optional-end-date definitions.
 - Shared Tasks with optional due dates, assignees, categories, priorities, and notes.
@@ -80,7 +80,7 @@ There is no separate public REST or GraphQL API for product data. Database acces
 - `/app` renders the shared calendar and task workspace.
 - `/settings` manages the shared workspace, membership invitation, appearance, and sign-out.
 
-The `/app` route supports `view` and `date` query parameters. Calendar navigation updates these parameters without scrolling, allowing the selected calendar period to survive navigation and refreshes.
+The `/app` route supports `view` and `date` query parameters. Valid views are `today`, `month`, `week`, `quarter`, `events`, and `agenda`. Calendar navigation updates these parameters without scrolling, allowing the selected calendar period to survive navigation and refreshes.
 
 ## Authentication and authorization
 
@@ -142,11 +142,13 @@ Changing the workspace timezone changes how stored UTC instants are displayed. I
 - Left navigation sidebar
 - Center calendar
 - Persistent right Tasks sidebar
+- Each sidebar owns its collapse control, and compact edge rails restore hidden sidebars while keeping the center header unobscured.
 
 ### Tablet from 821 px through 1180 px
 
 - Left navigation plus calendar
 - Tasks can appear as a fixed right-side overlay
+- The left sidebar owns its collapse control; a compact edge rail restores it. Tasks open below the center header as a fixed overlay and carry their own close control.
 
 ### Mobile at 820 px and below
 
@@ -162,6 +164,14 @@ The keyboard shortcuts `N` and `C` open a new Task editor when focus is not insi
 
 ### Views
 
+The main header uses one compact selector for Today, Week, Month, and 3 Month. Today is a dedicated one-day view that returns to the current date in the workspace timezone. Events and Agenda remain separate, directly accessible buttons beside the selector.
+
+#### Today
+
+- Displays every Event and dated Task for the current workspace-local date in one readable list.
+- Remains visibly rendered when the date is empty and offers a direct add-Event action.
+- Previous and next controls browse one day at a time; selecting Today again returns to the actual current date.
+
 #### Month
 
 - Always renders a six-week, Sunday-through-Saturday grid.
@@ -172,14 +182,33 @@ The keyboard shortcuts `N` and `C` open a new Task editor when focus is not insi
 #### Week
 
 - Renders Sunday through Saturday.
-- Includes an all-day row.
+- Includes an all-day row designed for the large number of date-only Items.
+- All-day cards wrap long titles and display up to two lines of Event details or Task notes.
+- All-day Items are ordered by creation timestamp, newest first.
+- The all-day area grows vertically instead of forcing every Item into a single truncated line.
 - Includes hourly rows from 7:00 AM through 8:00 PM for compatibility with timed legacy data.
 - Current Event creation is date-only, so newly created Events appear in the all-day row.
+- Day columns use constrained responsive sizing so long Items cannot overlap adjacent days when the available laptop width shrinks.
+
+#### 3 Month
+
+- Renders the selected month and the following two months in compact side-by-side calendars.
+- Uses category-colored Event squares and Task circles to summarize up to five Items per date.
+- Supports three-month previous and next navigation while preserving direct date selection.
+
+#### Future Events
+
+- Displays all future one-time Events without an arbitrary date-window cutoff.
+- Includes an Event that is currently in progress across multiple dates.
+- Displays the next occurrence of each recurring Event series, including indefinitely recurring series.
+- Sorts Event cards by their next occurrence date and then by creation time.
+- Shows date or date range, title, details, location, category, category color, and recurrence label.
+- Does not include Tasks; this preserves a dedicated Event surface while Agenda remains available for mixed Items.
 
 #### Agenda
 
 - Examines an 18-day range beginning two days before the anchor date.
-- Omits empty days.
+- Omits empty days except for the selected anchor date, so Today remains visible even when no Items are scheduled.
 - Shows item type, category color, location for Events, and completion state for Tasks.
 
 ### Calendar item rendering
@@ -192,6 +221,7 @@ The keyboard shortcuts `N` and `C` open a new Task editor when focus is not insi
 - Completed Tasks remain visible on the calendar with reduced opacity and a line-through.
 - Multi-day Events render on every included calendar date.
 - Recurring Event occurrences are calculated client-side from one stored master Event; occurrence rows are not materialized in the database.
+- On laptop and desktop layouts, truncated calendar and task text exposes a hover preview with the full title, details, and relevant metadata before selection.
 
 ## Events
 
@@ -507,6 +537,7 @@ These are not necessarily defects; they define the current MVP boundary:
 - No Task recurrence controls in the current UI.
 - No timed Event creation in the current UI.
 - No per-occurrence editing, skipping, or exception dates for recurring Events.
+- The Future Events view shows one next occurrence per recurring series rather than expanding an infinite list of future occurrences.
 - No drag-and-drop rescheduling or manual Task reordering.
 - No attachments, comments, activity feed, or audit-log UI.
 - No search or global command palette.
@@ -545,4 +576,4 @@ These are not necessarily defects; they define the current MVP boundary:
 
 ## Suggested context statement for future planning
 
-When planning future Tandem work, assume the application is a deployed two-person shared workspace with secure Neon Auth membership, date-only recurring/multi-day Events, optional-date non-recurring Tasks, shared color-coded categories, Category-first collapsed urgency task grouping, and responsive calendar/task surfaces. Preserve workspace scoping, the two-member invariant, category color consistency, timezone correctness, local-first testing, and the user's approval-before-deployment workflow.
+When planning future Tandem work, assume the application is a deployed two-person shared workspace with secure Neon Auth membership, date-only recurring/multi-day Events, dedicated Month/Week/Future Events/Agenda surfaces, optional-date non-recurring Tasks, shared color-coded categories, Category-first collapsed urgency task grouping, and independently collapsible desktop sidebars. Preserve workspace scoping, the two-member invariant, category color consistency, timezone correctness, local-first testing, and the user's approval-before-deployment workflow.
