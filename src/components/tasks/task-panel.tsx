@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, CircleAlert, Flag, ListTodo, Plus, Repeat2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, CircleAlert, Flag, ListTodo, Plus, Repeat2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -81,7 +81,7 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <ScrollArea className="h-full"><div className="space-y-5 p-3 pb-24">
           {visibleTasks.length === 0 && <div className="grid place-items-center gap-2 py-16 text-center text-muted-foreground"><ListTodo className="size-9" /><p className="text-sm font-medium">Nothing here yet</p><p className="max-w-52 text-xs">Add a shared task or choose another view.</p></div>}
-          {sections.map((section) => section.tasks.length > 0 && <TaskSection key={section.key} title={section.title} color={section.color} tasks={section.tasks} lists={lists} members={members} timezone={timezone} onEdit={onEdit} onToggle={toggle} />)}
+          {sections.map((section) => section.tasks.length > 0 && <TaskSection key={section.key} title={section.title} color={section.color} tasks={section.tasks} lists={lists} members={members} timezone={timezone} collapseOverflow={grouping === "category"} onEdit={onEdit} onToggle={toggle} />)}
         </div></ScrollArea>
         <Button className="absolute bottom-4 right-4 shadow-lg" onClick={onAdd}><Plus />New task</Button>
       </div>
@@ -99,6 +99,7 @@ function taskViewLabel(filter: TaskFilter, lists: ListView[]) {
 }
 
 function sortTasks(tasks: TaskView[], timezone: string, today: string) {
+  const priorityRank = { high: 0, medium: 1, low: 2, none: 3 } as const;
   const due = (task: TaskView) => task.dueAt ? utcToLocalParts(task.dueAt, timezone).date : null;
   const rank = (task: TaskView) => {
     if (task.completedAt) return 4;
@@ -108,7 +109,7 @@ function sortTasks(tasks: TaskView[], timezone: string, today: string) {
     if (date) return 2;
     return 3;
   };
-  return [...tasks].sort((a, b) => rank(a) - rank(b) || (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999") || a.createdAt.localeCompare(b.createdAt));
+  return [...tasks].sort((a, b) => rank(a) - rank(b) || (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999") || priorityRank[a.priority] - priorityRank[b.priority] || a.createdAt.localeCompare(b.createdAt));
 }
 
 function buildCreatorSections(tasks: TaskView[], members: MemberView[], timezone: string, today: string): TaskSectionData[] {
@@ -127,17 +128,21 @@ function buildCategorySections(tasks: TaskView[], lists: ListView[], timezone: s
   return sections;
 }
 
-function TaskSection({ title, color, tasks, lists, members, timezone, onEdit, onToggle }: {
+function TaskSection({ title, color, tasks, lists, members, timezone, collapseOverflow = false, onEdit, onToggle }: {
   title: string;
   color?: string;
   tasks: TaskView[];
   lists: ListView[];
   members: MemberView[];
   timezone: string;
+  collapseOverflow?: boolean;
   onEdit: (id: string) => void;
   onToggle: (task: TaskView, completed: boolean) => void;
 }) {
-  return <section><div className="mb-1.5 flex items-center justify-between px-1 text-xs font-bold"><span className="flex items-center gap-1.5">{color && <span className="size-2.5 rounded-full ring-1 ring-black/10" style={{ backgroundColor: color }} />}{title === "Overdue" && <CircleAlert className="size-3.5 text-destructive" />}{title === "Recently completed" && <CheckCircle2 className="size-3.5 text-success" />}{title}</span><span className="font-normal text-muted-foreground">{tasks.length}</span></div><div className="grid gap-1">{tasks.map((task) => <TaskRow key={task.id} task={task} list={lists.find((list) => list.id === task.listId)} member={members.find((member) => member.userId === task.assigneeUserId)} timezone={timezone} onEdit={onEdit} onToggle={onToggle} />)}</div></section>;
+  const [expanded, setExpanded] = useState(false);
+  const hiddenCount = Math.max(0, tasks.length - 1);
+  const visibleTasks = collapseOverflow && !expanded ? tasks.slice(0, 1) : tasks;
+  return <section><div className="mb-1.5 flex items-center justify-between px-1 text-xs font-bold"><span className="flex items-center gap-1.5">{color && <span className="size-2.5 rounded-full ring-1 ring-black/10" style={{ backgroundColor: color }} />}{title === "Overdue" && <CircleAlert className="size-3.5 text-destructive" />}{title === "Recently completed" && <CheckCircle2 className="size-3.5 text-success" />}{title}</span><span className="font-normal text-muted-foreground">{tasks.length}</span></div><div className="grid gap-1">{visibleTasks.map((task) => <TaskRow key={task.id} task={task} list={lists.find((list) => list.id === task.listId)} member={members.find((member) => member.userId === task.assigneeUserId)} timezone={timezone} onEdit={onEdit} onToggle={onToggle} />)}{collapseOverflow && hiddenCount > 0 && <Button type="button" variant="ghost" size="sm" className="h-7 justify-start px-2 text-xs text-muted-foreground" aria-expanded={expanded} aria-label={`${expanded ? "Collapse" : "Expand"} ${title} tasks`} onClick={() => setExpanded((value) => !value)}>{expanded ? <ChevronUp /> : <ChevronDown />}{expanded ? "Show less" : `Show ${hiddenCount} more`}</Button>}</div></section>;
 }
 
 function TaskRow({ task, list, member, timezone, onEdit, onToggle }: { task: TaskView; list?: ListView; member?: MemberView; timezone: string; onEdit: (id: string) => void; onToggle: (task: TaskView, completed: boolean) => void }) {
