@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { events, taskLists, tasks, workspaceMembers, workspaces } from "../../../db/schema";
 import { requireWorkspace } from "@/lib/authorization";
 import { db } from "@/lib/db/client";
+import { parseRecurrence } from "@/lib/recurrence";
 import type { AppData, EventView, TaskView } from "@/lib/types";
 
 export async function getAppData(): Promise<AppData> {
@@ -39,6 +40,7 @@ export async function getAppData(): Promise<AppData> {
       listId: task.listId,
       priority: task.priority as TaskView["priority"],
       completedAt: task.completedAt?.toISOString() ?? null,
+      recurrence: parseRecurrence(task.recurrence),
       createdBy: task.createdBy,
       updatedBy: task.updatedBy,
       createdAt: task.createdAt.toISOString(),
@@ -53,7 +55,7 @@ export async function getAppData(): Promise<AppData> {
       endAt: event.endAt.toISOString(),
       allDay: event.allDay,
       color: event.color as EventView["color"],
-      recurrence: (event.recurrence as EventView["recurrence"]) ?? null,
+      recurrence: parseRecurrence(event.recurrence),
       createdBy: event.createdBy,
       updatedBy: event.updatedBy,
       createdAt: event.createdAt.toISOString(),

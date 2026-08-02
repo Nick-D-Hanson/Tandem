@@ -7,7 +7,8 @@ import { revalidatePath } from "next/cache";
 import { events, taskLists, tasks, workspaceMembers } from "../../../db/schema";
 import { requireWorkspace } from "@/lib/authorization";
 import { db } from "@/lib/db/client";
-import { dateKey, localDate, localDateTimeToUtc } from "@/lib/dates/timezone";
+import { dateKey, localDate, localDateTimeToUtc, utcToLocalParts } from "@/lib/dates/timezone";
+import { nextRecurrenceDate, parseRecurrence, serializeRecurrence } from "@/lib/recurrence";
 import type { ActionResult } from "@/lib/types";
 import { eventSchema, idSchema, listSchema, taskSchema } from "@/lib/validation/schemas";
 import { actionFailure, validationFailure } from "./helpers";
@@ -39,6 +40,7 @@ export async function saveTaskAction(input: unknown): Promise<ActionResult<{ id:
       assigneeUserId: value.assigneeUserId || null,
       listId: value.listId || null,
       priority: value.priority,
+      recurrence: serializeRecurrence(value.recurrence),
       updatedBy: user.id,
       updatedAt: new Date(),
     };
@@ -63,15 +65,31 @@ async function getWorkspaceTimezone(workspaceId: string) {
   return workspace.timezone;
 }
 
-export async function toggleTaskAction(input: { id: string; completed: boolean }): Promise<ActionResult> {
+export async function toggleTaskAction(input: { id: string; completed: boolean }): Promise<ActionResult<{ advanced: boolean }>> {
   const parsed = idSchema.safeParse({ id: input.id });
   if (!parsed.success) return { ok: false, error: "Invalid task." };
   try {
     const { user, membership } = await requireWorkspace();
-    const [saved] = await db.update(tasks).set({ completedAt: input.completed ? new Date() : null, updatedBy: user.id, updatedAt: new Date() }).where(and(eq(tasks.id, input.id), eq(tasks.workspaceId, membership.workspaceId))).returning({ id: tasks.id });
+    const [task] = await db.select({ dueAt: tasks.dueAt, dueIsAllDay: tasks.dueIsAllDay, recurrence: tasks.recurrence }).from(tasks).where(and(eq(tasks.id, input.id), eq(tasks.workspaceId, membership.workspaceId))).limit(1);
+    if (!task) throw new Error("NOT_FOUND");
+    const rule = parseRecurrence(task.recurrence);
+    let advanced = false;
+    let dueAt = task.dueAt;
+    let completedAt = input.completed ? new Date() : null;
+    if (input.completed && rule && task.dueAt) {
+      const timezone = await getWorkspaceTimezone(membership.workspaceId);
+      const current = utcToLocalParts(task.dueAt.toISOString(), timezone);
+      const nextDate = nextRecurrenceDate(current.date, rule);
+      if (nextDate) {
+        dueAt = localDateTimeToUtc({ date: nextDate, time: task.dueIsAllDay ? null : current.time }, timezone);
+        completedAt = null;
+        advanced = true;
+      }
+    }
+    const [saved] = await db.update(tasks).set({ dueAt, completedAt, updatedBy: user.id, updatedAt: new Date() }).where(and(eq(tasks.id, input.id), eq(tasks.workspaceId, membership.workspaceId))).returning({ id: tasks.id });
     if (!saved) throw new Error("NOT_FOUND");
     revalidatePath("/app");
-    return { ok: true, data: undefined };
+    return { ok: true, data: { advanced } };
   } catch (error) { return actionFailure(error); }
 }
 
@@ -106,7 +124,7 @@ export async function saveEventAction(input: unknown): Promise<ActionResult<{ id
       endAt,
       allDay: value.allDay,
       color: value.color,
-      recurrence: value.recurrence === "none" ? null : value.recurrence,
+      recurrence: serializeRecurrence(value.recurrence),
       updatedBy: user.id,
       updatedAt: new Date(),
     };

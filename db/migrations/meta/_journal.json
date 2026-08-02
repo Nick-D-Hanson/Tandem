@@ -8,6 +8,13 @@
       "when": 1785698259115,
       "tag": "0000_even_yellow_claw",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785703948127,
+      "tag": "0001_loud_hulk",
+      "breakpoints": true
     }
   ]
 }

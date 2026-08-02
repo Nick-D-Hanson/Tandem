@@ -97,6 +97,7 @@ export const tasks = pgTable(
     assigneeUserId: text("assignee_user_id"),
     priority: text("priority").notNull().default("none"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    recurrence: text("recurrence"),
     position: integer("position").notNull().default(0),
     createdBy: text("created_by").notNull(),
     updatedBy: text("updated_by").notNull(),

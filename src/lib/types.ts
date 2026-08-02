@@ -1,3 +1,5 @@
+import type { RecurrenceRule } from "@/lib/recurrence";
+
 export type MemberView = {
   userId: string;
   displayName: string;
@@ -21,6 +23,7 @@ export type TaskView = {
   listId: string | null;
   priority: "none" | "low" | "medium" | "high";
   completedAt: string | null;
+  recurrence: RecurrenceRule | null;
   createdBy: string;
   updatedBy: string;
   createdAt: string;
@@ -36,7 +39,7 @@ export type EventView = {
   endAt: string;
   allDay: boolean;
   color: "blue" | "violet" | "teal" | "amber" | "rose";
-  recurrence: "daily" | "weekly" | "monthly" | null;
+  recurrence: RecurrenceRule | null;
   createdBy: string;
   updatedBy: string;
   createdAt: string;

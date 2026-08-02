@@ -1,10 +1,11 @@
 "use client";
 
-import { addDays, addMonths, differenceInCalendarDays, differenceInCalendarMonths, format, isSameMonth, isToday, subDays } from "date-fns";
+import { addDays, addMonths, format, isSameMonth, isToday, subDays } from "date-fns";
 import { CalendarCheck2, Clock3, MapPin } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { dateKey, localDate, monthCalendarRange, utcToLocalParts, weekCalendarRange } from "@/lib/dates/timezone";
+import { dateKey, monthCalendarRange, utcToLocalParts, weekCalendarRange } from "@/lib/dates/timezone";
+import { recurrenceMatchesDate } from "@/lib/recurrence";
 import type { EventView, TaskView } from "@/lib/types";
 
 export type CalendarMode = "month" | "week" | "agenda";
@@ -37,13 +38,7 @@ export function CalendarView({ mode, anchor, timezone, tasks, events, onSelect }
 
 function occurrenceOnDate(event: EventView, targetDate: string, timezone: string) {
   const base = utcToLocalParts(event.startAt, timezone).date;
-  if (targetDate < base) return false;
-  if (!event.recurrence) return targetDate === base;
-  const baseDate = localDate(base);
-  const target = localDate(targetDate);
-  if (event.recurrence === "daily") return true;
-  if (event.recurrence === "weekly") return differenceInCalendarDays(target, baseDate) % 7 === 0;
-  return target.getDate() === baseDate.getDate() && differenceInCalendarMonths(target, baseDate) >= 0;
+  return recurrenceMatchesDate(base, targetDate, event.recurrence);
 }
 
 function itemsForDate(date: string, timezone: string, tasks: TaskView[], events: EventView[]): CalendarItem[] {

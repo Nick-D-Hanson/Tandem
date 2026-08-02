@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { deleteEventAction, deleteTaskAction, saveEventAction, saveTaskAction } from "@/lib/actions/items";
 import { EVENT_COLORS } from "@/lib/constants";
 import { dateKey, utcToLocalParts } from "@/lib/dates/timezone";
+import type { RecurrenceFrequency, RecurrenceRule } from "@/lib/recurrence";
 import type { CalendarSelection } from "@/components/calendar/calendar-view";
 import type { EventView, ListView, MemberView, TaskView } from "@/lib/types";
 
@@ -80,7 +81,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
             description: String(formData.get("description") || ""),
             location: String(formData.get("location") || ""),
             color: String(formData.get("color") || "blue"),
-            recurrence: String(formData.get("recurrence") || "none"),
+            recurrence: recurrenceFromFormData(formData),
           })
         : await saveTaskAction({
             id: task?.id,
@@ -91,6 +92,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
             assigneeUserId: String(formData.get("assigneeUserId") || ""),
             listId: String(formData.get("listId") || ""),
             priority: String(formData.get("priority") || "none"),
+            recurrence: recurrenceFromFormData(formData),
           });
       if (!result.ok) return setError(result.error);
       toast.success(`${type === "event" ? "Event" : "Task"} saved`, { description: title });
@@ -153,7 +155,7 @@ function EventFields({ event, eventParts, eventEndParts, fallbackDate, fallbackT
     <div className="flex items-end pb-2"><Label className="flex min-h-10 cursor-pointer items-center gap-2"><Checkbox checked={allDay} onCheckedChange={(checked) => setAllDay(Boolean(checked))} />All day</Label></div>
     {!allDay && <><div className="space-y-2"><Label htmlFor="start-time">Starts</Label><Input id="start-time" name="startTime" type="time" required defaultValue={eventParts?.time ?? start} /></div><div className="space-y-2"><Label htmlFor="end-time">Ends</Label><Input id="end-time" name="endTime" type="time" required defaultValue={eventEndParts?.time ?? `${String(endHour).padStart(2, "0")}:00`} /></div></>}
     <div className="space-y-2"><Label htmlFor="location">Location</Label><Input id="location" name="location" defaultValue={event?.location ?? ""} placeholder="Optional" /></div>
-    <SelectField label="Repeats" name="recurrence" defaultValue={event?.recurrence ?? "none"} options={[{ value: "none", label: "Never" }, { value: "daily", label: "Daily" }, { value: "weekly", label: "Weekly" }, { value: "monthly", label: "Monthly" }]} />
+    <RecurrenceFields rule={event?.recurrence ?? null} baseDate={eventParts?.date ?? fallbackDate} />
     <SelectField label="Color" name="color" defaultValue={event?.color ?? "blue"} options={EVENT_COLORS.map((item) => ({ value: item.value, label: item.label }))} />
     <div className="col-span-full space-y-2"><Label htmlFor="description">Details</Label><Textarea id="description" name="description" defaultValue={event?.description ?? ""} placeholder="Optional notes" /></div>
   </div>;
@@ -166,7 +168,59 @@ function TaskFields({ task, taskParts, fallbackDate, lists, members }: { task?: 
     <SelectField label="List" name="listId" defaultValue={task?.listId ?? "inbox"} options={[{ value: "inbox", label: "Inbox" }, ...lists.map((list) => ({ value: list.id, label: list.name }))]} transformValue={(value) => value === "inbox" ? "" : value} />
     <SelectField label="Assignee" name="assigneeUserId" defaultValue={task?.assigneeUserId ?? "unassigned"} options={[{ value: "unassigned", label: "Unassigned / shared" }, ...members.map((member) => ({ value: member.userId, label: member.displayName }))]} transformValue={(value) => value === "unassigned" ? "" : value} />
     <SelectField label="Priority" name="priority" defaultValue={task?.priority ?? "none"} options={[{ value: "none", label: "None" }, { value: "low", label: "Low" }, { value: "medium", label: "Medium" }, { value: "high", label: "High" }]} />
+    <RecurrenceFields rule={task?.recurrence ?? null} baseDate={taskParts?.date ?? fallbackDate ?? dateKey(new Date())} />
     <div className="col-span-full space-y-2"><Label htmlFor="notes">Notes</Label><Textarea id="notes" name="notes" defaultValue={task?.notes ?? ""} placeholder="Optional notes" /></div>
+  </div>;
+}
+
+const weekdayOptions = [
+  { value: 0, label: "S" }, { value: 1, label: "M" }, { value: 2, label: "T" }, { value: 3, label: "W" },
+  { value: 4, label: "T" }, { value: 5, label: "F" }, { value: 6, label: "S" },
+];
+
+function recurrenceFromFormData(formData: FormData): RecurrenceRule | null {
+  const frequency = String(formData.get("recurrenceFrequency") || "none");
+  if (frequency === "none") return null;
+  const interval = Math.max(1, Math.min(99, Number(formData.get("recurrenceInterval") || 1)));
+  const weekdays = String(formData.get("recurrenceWeekdays") || "").split(",").filter(Boolean).map(Number);
+  const until = String(formData.get("recurrenceUntil") || "");
+  return {
+    frequency: frequency as RecurrenceFrequency,
+    interval,
+    ...(frequency === "weekly" && weekdays.length ? { weekdays } : {}),
+    ...(until ? { until } : {}),
+  };
+}
+
+function RecurrenceFields({ rule, baseDate }: { rule: RecurrenceRule | null; baseDate: string }) {
+  type RecurrencePreset = RecurrenceFrequency | "none" | "custom";
+  const simplePreset: RecurrencePreset = rule && rule.interval === 1 && !rule.weekdays?.length && !rule.until ? rule.frequency : rule ? "custom" : "none";
+  const [preset, setPreset] = useState<RecurrencePreset>(simplePreset);
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>(rule?.frequency ?? "weekly");
+  const [interval, setInterval] = useState(rule?.interval ?? 1);
+  const [weekdays, setWeekdays] = useState<number[]>(rule?.weekdays?.length ? rule.weekdays : [new Date(`${baseDate}T12:00:00`).getDay()]);
+  const [until, setUntil] = useState(rule?.until ?? "");
+  const activeFrequency = preset === "custom" ? frequency : preset;
+  const activeInterval = preset === "custom" ? interval : 1;
+
+  function toggleWeekday(day: number) {
+    setWeekdays((current) => current.includes(day) ? (current.length === 1 ? current : current.filter((value) => value !== day)) : [...current, day].sort());
+  }
+
+  return <div className="col-span-full space-y-3 rounded-xl border bg-secondary/25 p-3">
+    <div className="space-y-2"><Label>Repeats</Label><Select value={preset} onValueChange={(value) => setPreset(value as RecurrencePreset)}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
+      <SelectItem value="none">Never</SelectItem><SelectItem value="daily">Daily</SelectItem><SelectItem value="weekly">Weekly</SelectItem><SelectItem value="monthly">Monthly</SelectItem><SelectItem value="yearly">Annually</SelectItem><SelectItem value="custom">Custom…</SelectItem>
+    </SelectContent></Select></div>
+    <input type="hidden" name="recurrenceFrequency" value={activeFrequency} />
+    <input type="hidden" name="recurrenceInterval" value={activeInterval} />
+    <input type="hidden" name="recurrenceWeekdays" value={preset === "custom" && frequency === "weekly" ? weekdays.join(",") : ""} />
+    <input type="hidden" name="recurrenceUntil" value={preset === "custom" ? until : ""} />
+    {preset === "custom" && <div className="grid grid-cols-[96px_1fr] gap-3 max-sm:grid-cols-1">
+      <div className="space-y-2"><Label htmlFor="recurrence-interval">Every</Label><Input id="recurrence-interval" type="number" min={1} max={99} value={interval} onChange={(event) => setInterval(Math.max(1, Math.min(99, Number(event.target.value) || 1)))} /></div>
+      <div className="space-y-2"><Label>Unit</Label><Select value={frequency} onValueChange={(value) => setFrequency(value as RecurrenceFrequency)}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="daily">Days</SelectItem><SelectItem value="weekly">Weeks</SelectItem><SelectItem value="monthly">Months</SelectItem><SelectItem value="yearly">Years</SelectItem></SelectContent></Select></div>
+      {frequency === "weekly" && <div className="col-span-full space-y-2"><Label>On</Label><div className="grid grid-cols-7 gap-1">{weekdayOptions.map((day) => <Button key={day.value} type="button" size="sm" variant={weekdays.includes(day.value) ? "default" : "outline"} className="px-0" aria-pressed={weekdays.includes(day.value)} onClick={() => toggleWeekday(day.value)}>{day.label}</Button>)}</div></div>}
+      <div className="col-span-full space-y-2"><Label htmlFor="recurrence-until">End date <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="recurrence-until" type="date" min={baseDate} value={until} onChange={(event) => setUntil(event.target.value)} /></div>
+    </div>}
   </div>;
 }
 

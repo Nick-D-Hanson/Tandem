@@ -4,6 +4,12 @@ const uuid = z.uuid();
 const optionalText = z.string().trim().max(2000).optional().or(z.literal(""));
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid date");
 const timeString = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Choose a valid time");
+const recurrenceSchema = z.object({
+  frequency: z.enum(["daily", "weekly", "monthly", "yearly"]),
+  interval: z.number().int().min(1).max(99),
+  weekdays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+  until: dateString.optional().or(z.literal("")),
+}).nullable().default(null);
 
 export const workspaceSchema = z.object({
   name: z.string().trim().min(1, "Workspace name is required").max(80),
@@ -22,7 +28,7 @@ export const eventSchema = z
     description: optionalText,
     location: z.string().trim().max(240).optional().or(z.literal("")),
     color: z.enum(["blue", "violet", "teal", "amber", "rose"]),
-    recurrence: z.enum(["none", "daily", "weekly", "monthly"]),
+    recurrence: recurrenceSchema,
   })
   .superRefine((value, context) => {
     if (!value.allDay && (!value.startTime || !value.endTime)) {
@@ -30,6 +36,9 @@ export const eventSchema = z
     }
     if (!value.allDay && value.startTime && value.endTime && value.endTime <= value.startTime) {
       context.addIssue({ code: "custom", message: "End time must be after start time", path: ["endTime"] });
+    }
+    if (value.recurrence?.until && value.recurrence.until < value.date) {
+      context.addIssue({ code: "custom", message: "Repeat end date cannot be before the event", path: ["recurrence"] });
     }
   });
 
@@ -42,6 +51,10 @@ export const taskSchema = z.object({
   assigneeUserId: z.string().trim().max(255).optional().or(z.literal("")),
   listId: uuid.optional().or(z.literal("")),
   priority: z.enum(["none", "low", "medium", "high"]),
+  recurrence: recurrenceSchema,
+}).superRefine((value, context) => {
+  if (value.recurrence && !value.dueDate) context.addIssue({ code: "custom", message: "A repeating task needs a due date", path: ["dueDate"] });
+  if (value.recurrence?.until && value.dueDate && value.recurrence.until < value.dueDate) context.addIssue({ code: "custom", message: "Repeat end date cannot be before the due date", path: ["recurrence"] });
 });
 
 export const listSchema = z.object({

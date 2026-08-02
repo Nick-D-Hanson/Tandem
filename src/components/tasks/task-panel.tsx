@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, CircleAlert, ListTodo, Plus } from "lucide-react";
+import { CheckCircle2, CircleAlert, ListTodo, Plus, Repeat2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toggleTaskAction } from "@/lib/actions/items";
 import { dateKey, localDate, utcToLocalParts, zonedNow } from "@/lib/dates/timezone";
+import { recurrenceLabel } from "@/lib/recurrence";
 import type { ListView, MemberView, TaskView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +26,7 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
   onAdd: () => void;
   className?: string;
 }) {
+  const router = useRouter();
   const [completionOverrides, setCompletionOverrides] = useState<Record<string, string | null>>({});
   const tasks = serverTasks.map((task) => Object.hasOwn(completionOverrides, task.id) ? { ...task, completedAt: completionOverrides[task.id] } : task);
   const today = dateKey(zonedNow(timezone));
@@ -39,7 +42,17 @@ export function TaskPanel({ tasks: serverTasks, lists, members, timezone, filter
       });
       toast.error(result.error);
     } else {
-      toast.success(completed ? "Task completed" : "Task reopened", { description: task.title });
+      if (result.data.advanced) {
+        setCompletionOverrides((current) => {
+          const next = { ...current };
+          delete next[task.id];
+          return next;
+        });
+        toast.success("Task moved to its next occurrence", { description: task.title });
+        router.refresh();
+      } else {
+        toast.success(completed ? "Task completed" : "Task reopened", { description: task.title });
+      }
     }
   }
 
@@ -105,7 +118,7 @@ function TaskRow({ task, list, member, timezone, onEdit, onToggle }: { task: Tas
   const dueLabel = due ? formatDueDate(due.date, due.time, task.dueIsAllDay, dateKey(zonedNow(timezone))) : list?.name ?? "Inbox";
   return <div role="button" tabIndex={0} onClick={() => onEdit(task.id)} onKeyDown={(event) => { if (event.key === "Enter") onEdit(task.id); }} className="grid cursor-pointer grid-cols-[22px_1fr_auto] items-start gap-2 rounded-lg border border-transparent p-2 hover:border-border hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`task-${task.id}`}>
     <Checkbox checked={Boolean(task.completedAt)} onCheckedChange={(checked) => onToggle(task, Boolean(checked))} onClick={(event) => event.stopPropagation()} aria-label={`${task.completedAt ? "Reopen" : "Complete"} ${task.title}`} className="mt-0.5" />
-    <div className="min-w-0"><div className={cn("truncate text-sm font-medium", task.completedAt && "text-muted-foreground line-through")}>{task.title}</div><div className="mt-0.5 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground"><span>{dueLabel}</span>{due && list && <span>• {list.name}</span>}</div></div>
+    <div className="min-w-0"><div className={cn("truncate text-sm font-medium", task.completedAt && "text-muted-foreground line-through")}>{task.title}</div><div className="mt-0.5 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground"><span>{dueLabel}</span>{due && list && <span>• {list.name}</span>}{task.recurrence && <span className="inline-flex items-center gap-0.5" title={recurrenceLabel(task.recurrence)}><Repeat2 className="size-3" />{recurrenceLabel(task.recurrence)}</span>}</div></div>
     <div className="flex items-center gap-1.5"><span className={cn("h-6 w-[3px] rounded-full", task.priority === "high" && "bg-red-500", task.priority === "medium" && "bg-amber-500", task.priority === "low" && "bg-blue-400")} />{member && <span title={member.displayName} className="grid size-6 place-items-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">{initials(member.displayName)}</span>}</div>
   </div>;
 }
