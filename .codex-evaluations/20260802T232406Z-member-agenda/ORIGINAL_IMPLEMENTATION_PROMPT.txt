@@ -1,0 +1,422 @@
+CODEX IMPLEMENTATION PROMPT — TANDEM MEMBER AGENDA (PRIVATE BY DEFAULT)
+
+You are implementing a new production-quality feature in the existing Tandem repository.
+
+Repository:
+- Nick-D-Hanson/Coupled
+
+Current application:
+- Next.js 16.2 App Router
+- React 19.2 + TypeScript
+- Tailwind CSS 4
+- Radix UI primitives and local shadcn-style components
+- Neon Auth
+- Neon Serverless Postgres
+- Drizzle ORM / Drizzle Kit
+- Zod
+- date-fns / date-fns-tz
+- Vitest
+- Playwright
+- pnpm 11
+- Vercel hosting
+
+Before editing:
+1. Read the repository’s current implementation, AGENTS.md or equivalent instructions, package.json, schema, migrations, application data loader, authorization utilities, date/timezone utilities, app shell, navigation, and tests.
+2. Do not assume file contents solely from this prompt. Preserve existing patterns where the repository differs.
+3. Produce a concise implementation plan before making changes.
+4. Do not refactor unrelated functionality.
+5. Do not expose, print, commit, or modify real secret values.
+
+PRIMARY OBJECTIVE
+
+Add a robust personal “Agenda” feature through which each authenticated workspace member can independently plan an ordered list of lightweight items for today and the next one or two days.
+
+This Agenda is intentionally independent of Tasks and Calendar Events:
+- Agenda items are not Tasks.
+- Agenda items are not Events.
+- Agenda items have no category, assignee, priority, due time, recurrence, notes, or completion state.
+- Creating, editing, moving, or deleting an Agenda item must not create or mutate a Task or Event.
+- Do not add conversion or synchronization behavior in this implementation.
+
+IMPORTANT NAMING CONFLICT
+
+The calendar currently has a calendar view named “Agenda” and internally uses the `agenda` calendar mode/query value.
+
+Resolve the user-facing conflict as follows:
+- The new top-level personal feature is labeled “Agenda.”
+- Rename only the existing calendar view’s visible label from “Agenda” to “My List.”
+- Preserve its internal mode, URL query value, behavior, and compatibility unless the existing code makes a safer equivalent approach necessary.
+- Do not remove or materially redesign the existing calendar My List/Agenda view.
+
+PRODUCT DECISIONS
+
+Treat these as approved requirements:
+
+1. Ownership, visibility, and permissions
+- Each Agenda belongs to one authenticated workspace member.
+- Each member controls whether their entire Agenda is private or visible to the other current workspace member.
+- Default visibility: private. This must be enforced by both the database default and application behavior.
+- Visibility is list-wide, not item-specific. Do not add per-item visibility controls.
+- When private, no other member may read the Agenda’s items or preference-backed presentation data.
+- When visible, other members in the same workspace may read the owner’s Agenda in a clearly read-only view.
+- Visibility never grants mutation rights. Only the owner may create, edit, reorder, move, delete, clear, or change preferences for their Agenda.
+- A member can always read and mutate their own Agenda.
+- Requests involving a private, cross-workspace, or nonexistent Agenda/item must return a generic user-safe result that does not expose row existence.
+- All rows must remain workspace-scoped as defense in depth.
+
+2. Planning horizon
+- The user can choose a horizon of 1, 2, or 3 planned days.
+- Default: 3 days.
+- The horizon begins with today in the workspace timezone:
+  - 1 day: today
+  - 2 days: today and tomorrow
+  - 3 days: today, tomorrow, and the following day
+- Persist the preference per workspace member so it follows the user across devices.
+
+3. Previous-day behavior
+- Also inspect the immediately prior calendar day in the workspace timezone.
+- If yesterday contains one or more Agenda items, display yesterday as a leading day before today.
+- If yesterday has no Agenda items, do not display it.
+- If the user deletes or clears the final item from yesterday, the yesterday section should disappear immediately after the successful mutation.
+- Example for August 2, 2026: August 1 appears before August 2 only while August 1 still contains at least one item.
+- Do not automatically display dates older than yesterday.
+- Do not automatically delete older stored Agenda items.
+
+4. Default item capacity
+- Render seven editable item slots for each current/future displayed day by default.
+- Seven is the selected default within the requested five-to-ten range.
+- Empty slots are UI placeholders only and must not create database rows.
+- The user can add an unlimited practical number of additional slots/items through an “Add item” action.
+- Only non-empty trimmed item text is persisted.
+
+5. Item behavior
+- Each persisted item contains:
+  - text/content
+  - agenda date
+  - ordering position
+  - owner
+  - workspace
+  - timestamps
+- Maximum trimmed item length: 300 characters.
+- Support:
+  - inline creation
+  - inline text editing
+  - deletion
+  - clearing all items for one day with confirmation
+  - drag-and-drop ordering within a day
+  - drag-and-drop movement between displayed days
+- Moving an item between days changes its Agenda date and normalized position.
+- Reordering must remain stable after refresh.
+- Do not implement checkboxes or completion state in this version.
+
+6. Date semantics
+- Agenda dates are date-only planning dates.
+- Determine “today,” “yesterday,” and future dates using the workspace’s IANA timezone, not the browser timezone.
+- Prefer a Postgres `date` column for the Agenda date rather than a UTC timestamp.
+- Reuse and extend the existing centralized timezone utilities instead of duplicating date logic.
+- Ensure behavior is correct around DST transitions and UTC date boundaries.
+
+USER EXPERIENCE
+
+Add a first-class authenticated Agenda surface.
+
+Preferred routing:
+- Use a dedicated route such as `/app/agenda` if compatible with the current App Router structure.
+- Preserve existing `/app?view=agenda` calendar compatibility.
+- Reuse the current authenticated shell and responsive navigation patterns rather than creating a disconnected mini-application.
+
+Navigation:
+- Add “Agenda” as a top-level destination in desktop/tablet navigation.
+- Add an Agenda destination to mobile navigation without removing access to Calendar, Tasks, or the existing add-item behavior.
+- The global Task/Event creation control must remain separate from Agenda item creation.
+- Agenda item creation occurs inside the Agenda surface.
+- The authenticated user’s own Agenda is the default selected view.
+- When another current workspace member has made their Agenda visible, provide a compact member selector or tabs to switch between the user’s editable Agenda and the other member’s read-only Agenda.
+- Do not show a selectable private Agenda or leak its item counts, dates, or content.
+
+Layout:
+- Desktop/tablet: show displayed days as ordered adjacent panels/cards where space permits.
+- Mobile: stack displayed days vertically.
+- Yesterday should be visually subdued and clearly labeled “Yesterday.”
+- Today should be clearly labeled “Today.”
+- Future days should show weekday and formatted date.
+- Show an owner-only visibility control near the Agenda heading with two explicit states: “Private” and “Visible to workspace.”
+- Default the control to “Private” for a new preference row.
+- Explain succinctly that visible Agendas are read-only to the other member.
+- When viewing another member’s visible Agenda, identify the owner and display a read-only indicator.
+- Follow existing light/dark theme tokens and local shadcn component conventions.
+- Avoid hard-coded colors that conflict with theme behavior.
+
+Day panel:
+- Header with day label and date.
+- Ordered list of item rows.
+- In the owner’s view: drag handle on persisted rows, inline editable content, delete action, “Add item,” and “Clear day” when persisted items exist.
+- In another member’s visible Agenda: render persisted items as read-only with no drag handles, editable fields, empty slots, add/delete/clear controls, or mutation shortcuts.
+- Render enough empty editable rows to reach seven visible rows for today/future dates only in the owner’s view.
+- Do not render blank placeholder rows for yesterday; yesterday displays only its persisted items.
+
+Interaction details:
+- Use optimistic UI where it is safe and consistent with existing Task behavior.
+- Show Sonner success/error feedback for destructive actions and failed persistence.
+- Revert optimistic state on failure.
+- Prevent accidental duplicate submissions.
+- Preserve sensible keyboard behavior:
+  - Enter on a non-empty new row should save and focus the next available row.
+  - Escape should cancel an unsaved empty edit where practical.
+- Maintain accessible labels, focus states, and keyboard navigation.
+- Drag-and-drop must work with pointer and touch input and provide a keyboard-accessible path.
+
+DRAG-AND-DROP
+
+Use `@dnd-kit/core`, `@dnd-kit/sortable`, and `@dnd-kit/utilities` unless the repository already contains a suitable accessible sortable implementation.
+
+Requirements:
+- Install dependencies with pnpm only if needed.
+- Use stable item IDs.
+- Support same-day reorder and cross-day movement.
+- Update the client optimistically.
+- Persist the complete affected day ordering in one server-side transaction.
+- Normalize positions to deterministic consecutive integers after each committed reorder.
+- If persistence fails, restore the prior client ordering and show an error.
+- Do not use browser-native HTML5 drag-and-drop as the only implementation because mobile/touch support is required.
+
+DATA MODEL
+
+Add schema and a committed Drizzle migration consistent with current repository conventions.
+
+Recommended tables:
+
+1. `agenda_preferences`
+- UUID primary key, if consistent with current schema conventions
+- workspace UUID, required, foreign key to workspaces with cascade deletion
+- user ID text, required, referencing the authenticated identity value used elsewhere
+- visible_days smallint/integer, required, default 3
+- is_shared boolean, required, default false
+- created_at
+- updated_at
+- unique constraint on `(workspace_id, user_id)`
+- check constraint restricting visible_days to 1 through 3
+- index supporting workspace/user lookup
+- ensure migration backfill/default leaves all existing member Agendas private
+
+2. `agenda_items`
+- UUID primary key
+- workspace UUID, required, foreign key to workspaces with cascade deletion
+- owner_user_id text, required
+- agenda_date Postgres date, required
+- content varchar/text, required
+- position integer, required
+- created_at
+- updated_at
+- index on `(workspace_id, owner_user_id, agenda_date, position)`
+- database check that trimmed/non-empty content is represented if practical without creating brittle SQL
+- database check that position is non-negative if consistent with repository conventions
+
+Authorization must not rely only on foreign keys.
+
+Every mutation must explicitly filter by:
+- active workspace ID
+- authenticated user ID matching owner_user_id
+- item ID where applicable
+
+Every read must explicitly enforce one of these cases:
+- the authenticated user is the owner; or
+- the authenticated user is a current member of the same workspace and the owner’s `agenda_preferences.is_shared` value is true
+
+Never infer sharing from item possession alone. Sharing is controlled by the owner’s preference row.
+
+Do not add Postgres row-level security; the current application intentionally uses server-only database access and application-layer authorization.
+
+APPLICATION DATA AND SERVER ACTIONS
+
+Use server actions and the current server-first architecture.
+
+Implement or adapt:
+- A scoped Agenda data loader that retrieves:
+  - the authenticated user’s preference and editable Agenda for yesterday through two days after today
+  - any other current workspace member’s Agenda only when that owner’s `is_shared` preference is true
+  - only the date window required by each owner’s stored visible-days preference, plus yesterday when it contains items
+- Return explicit ownership/read-only metadata to the client; never let the client infer mutation permission.
+- Avoid adding all historical Agenda rows to the main AppData payload.
+- Prefer route-specific loading for `/app/agenda` if that fits the repository cleanly.
+
+Add validated server actions for:
+- updateAgendaVisibleDays
+- updateAgendaVisibility
+- createAgendaItem
+- updateAgendaItem
+- deleteAgendaItem
+- clearAgendaDay
+- reorderAgendaItems / moveAgendaItems
+
+Validation:
+- Use Zod and existing result/error conventions.
+- Validate UUIDs.
+- Validate ISO date-only strings.
+- Validate trimmed content length from 1 through 300.
+- Validate visible days as exactly 1, 2, or 3.
+- Validate visibility as an explicit boolean or closed enum mapped to `is_shared`; never accept an arbitrary member/user ID as the visibility authority.
+- Reject dates outside the currently editable window of yesterday through two days after today, calculated in the workspace timezone.
+- The prior day may be edited or cleared only when it already contains persisted items.
+- Do not trust dates, owner IDs, workspace IDs, or positions from the client without server validation.
+- Return user-safe errors without exposing whether another user’s row exists.
+- Permit read-only loading of another member’s Agenda only when the current preference is shared.
+- Re-check sharing on every server read; do not rely on stale client state.
+- All item and preference mutations must reject non-owners even when the Agenda is shared.
+
+Reordering transaction:
+- Accept the minimum payload needed to describe the resulting ordered IDs for affected displayed dates.
+- Re-fetch all referenced rows inside the transaction.
+- Confirm every referenced item belongs to the authenticated user and active workspace.
+- Confirm target dates fall in the allowed window.
+- Confirm no unauthorized or duplicate IDs are supplied.
+- Update date and normalized position atomically.
+- Ensure items omitted from an affected day are not accidentally deleted.
+- Prefer a clear, auditable implementation over clever fractional-position logic.
+
+Concurrency:
+- No real-time subscription is required.
+- Follow the current mutation + revalidation + `router.refresh()` model.
+- The UI should remain correct after refresh.
+
+COMPONENT ORGANIZATION
+
+Follow existing repository conventions. A reasonable source map could include:
+- `src/app/(product)/app/agenda/page.tsx`
+- `src/components/agenda/agenda-view.tsx`
+- `src/components/agenda/agenda-day.tsx`
+- `src/components/agenda/agenda-item-row.tsx`
+- `src/lib/data/agenda-data.ts`
+- `src/lib/actions/agenda.ts`
+- additions to `src/lib/validation/schemas.ts`
+- additions to `src/lib/dates/timezone.ts`
+- additions to `src/lib/types.ts`
+- updates to app/mobile navigation
+- `db/schema.ts`
+- a new committed migration in `db/migrations/`
+
+These names are suggestions. Prefer the repository’s actual patterns after inspection.
+
+TESTING REQUIREMENTS
+
+Add focused automated coverage.
+
+Unit/integration tests:
+1. Preference validation accepts 1–3 and rejects other values.
+2. A new or migrated Agenda preference defaults to private (`is_shared = false`).
+3. Visibility validation accepts only the supported private/shared state.
+4. Item validation trims content, rejects empty text, and rejects over 300 characters.
+5. Workspace-timezone date-window calculation correctly identifies yesterday/today/future dates, including a DST boundary.
+6. An owner can always load their own Agenda.
+7. A same-workspace member can read another member’s Agenda only when it is shared.
+8. A private Agenda does not expose items, counts, or date metadata to another member.
+9. A non-owner cannot create, edit, reorder, move, delete, clear, or change preferences for a shared Agenda.
+10. Switching a shared Agenda back to private revokes access on the next server load.
+11. Cross-workspace item access is rejected generically.
+12. Yesterday is included only when it contains at least one item.
+13. Clearing the final yesterday item causes yesterday to be omitted on the next load.
+14. Same-day reorder produces consecutive stable positions.
+15. Cross-day movement changes the date and normalizes both affected day orderings.
+16. Reorder rejects duplicate, missing, foreign-owner, and out-of-window item IDs.
+17. Empty placeholder rows never create database records.
+
+Browser test:
+- Extend Playwright coverage when authenticated E2E credentials are available:
+  - open Agenda
+  - create items on today and tomorrow
+  - reorder within today
+  - move one item to tomorrow
+  - refresh and confirm order/date persistence
+  - change horizon from 3 to 1 and back
+  - confirm the visibility control defaults to Private
+  - toggle the owner’s Agenda to Visible to workspace and back to Private
+  - create an item for yesterday only through an appropriate seeded/setup mechanism, then clear it and confirm the yesterday panel disappears
+- When optional second-member E2E credentials are available, verify that the second member can view the shared Agenda read-only, cannot mutate it, and loses access after it becomes private.
+- Preserve the current behavior of skipping authenticated tests when required E2E credentials are absent.
+- Do not add an authentication bypass.
+
+ACCEPTANCE CRITERIA
+
+The implementation is complete only when:
+
+1. An authenticated member can open a top-level Agenda surface on desktop and mobile.
+2. The existing calendar Agenda view is visibly labeled My List but remains functionally compatible.
+3. Each user has an independently owned Agenda whose visibility defaults to private.
+4. The owner can switch the entire Agenda between Private and Visible to workspace.
+5. A same-workspace member can read a visible Agenda but cannot mutate it; private Agenda content and metadata are not exposed.
+6. The authenticated user’s own Agenda is selected by default, with another member’s Agenda selectable only while shared.
+7. The horizon preference persists as 1, 2, or 3 days and defaults to 3.
+8. Today/future days show seven initial UI slots without creating empty rows in Postgres.
+9. Users can add more than seven items to any displayed current/future day.
+10. Owners can create, edit, delete, and clear their Agenda items.
+11. Owners can reorder items within a day.
+12. Owners can drag items between displayed days on desktop and touch devices.
+13. Ordering and dates persist after refresh.
+14. Yesterday appears only while it contains at least one item and disappears after its final item is removed.
+15. Workspace timezone controls all date boundaries.
+16. No Agenda mutation can affect another member’s data, including when that Agenda is shared.
+17. Tasks, Events, categories, recurrence, and existing calendar behavior remain unchanged except for the calendar view’s visible label.
+18. Light/dark themes and responsive layouts remain visually consistent.
+19. All required quality gates pass.
+
+NON-GOALS
+
+Do not implement:
+- editing another member’s Agenda
+- per-item visibility controls
+- public, link-based, or external Agenda sharing
+- Task/Event conversion
+- Agenda item completion
+- recurring Agenda items
+- categories, priorities, assignees, notes, times, or reminders
+- historical Agenda browsing
+- automatic deletion/archival
+- notifications
+- real-time collaboration
+- Calendar/Task drag-and-drop
+- deployment
+- production migration execution
+- unrelated redesigns
+
+QUALITY AND DELIVERY PROCESS
+
+After implementation:
+1. Format changed files using repository conventions.
+2. Run:
+   - `pnpm typecheck`
+   - `pnpm lint`
+   - `pnpm test`
+   - `pnpm build`
+3. Run relevant Playwright tests when credentials/configuration are available.
+4. Perform a local browser verification of:
+   - desktop
+   - mobile viewport
+   - light theme
+   - dark theme
+   - keyboard interaction
+   - touch-compatible drag behavior where the test environment supports it
+5. Fix failures caused by the change.
+6. Review the final diff for:
+   - authorization gaps
+   - stale or bypassable sharing checks
+   - timezone mistakes
+   - unnecessary data loading
+   - accidental Task/Event coupling
+   - accessibility regressions
+   - mobile overflow
+7. Create the migration file but do not execute it against a shared, preview, or production Neon database without explicit approval.
+8. Do not deploy to Vercel, commit, or push unless explicitly instructed.
+
+FINAL RESPONSE FORMAT
+
+Return:
+1. Brief implementation summary.
+2. Files added and modified.
+3. Schema/migration summary.
+4. Authorization and timezone decisions.
+5. Tests added and exact quality-gate results.
+6. Manual verification performed.
+7. Any remaining limitations or risks.
+8. Exact migration command that should be run after approval.
+
+Do not claim a command, test, migration, browser check, commit, push, or deployment occurred unless it actually occurred.

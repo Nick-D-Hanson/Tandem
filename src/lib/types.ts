@@ -63,6 +63,37 @@ export type AppData = {
   events: EventView[];
 };
 
+export type AgendaItemView = {
+  id: string;
+  content: string;
+  date: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AgendaDayView = {
+  date: string;
+  items: AgendaItemView[];
+  isYesterday: boolean;
+};
+
+export type AgendaOwnerView = {
+  ownerUserId: string;
+  displayName: string;
+  canEdit: boolean;
+  visibleDays: 1 | 2 | 3;
+  isShared: boolean;
+  days: AgendaDayView[];
+};
+
+export type AgendaData = {
+  currentUserId: string;
+  workspaceTimezone: string;
+  today: string;
+  agendas: AgendaOwnerView[];
+};
+
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };

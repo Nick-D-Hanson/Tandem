@@ -1,0 +1,37 @@
+RTK baseline captured before feature work:
+
+Total commands: 2
+Input tokens: 467
+Output tokens: 123
+Tokens saved: 344 (73.7%)
+Total exec time: 31ms
+
+Commands:
+- rtk ls -la .: 331 saved
+- rtk git status: 13 saved
+
+Final raw output:
+
+RTK Token Savings (Global Scope)
+Total commands: 5
+Input tokens: 561
+Output tokens: 196
+Tokens saved: 365 (65.1%)
+Total exec time: 461ms (avg 92ms)
+
+By Command:
+- rtk ls -la . — count 1, saved 331, avg 74.9%, 8ms
+- rtk git status — count 2, saved 26, avg 52.0%, 23ms
+- rtk git log -n 3 — count 1, saved 8, avg 11.6%, 11ms
+- rtk pnpm add @dnd-kit... — count 1, saved 0, avg 0.0%, 395ms
+
+RTK warning: No hook installed — run `rtk init -g` for automatic token savings.
+
+Feature-window delta from the two snapshots:
+- Recorded commands added: 3
+- Input tokens added: 94
+- Output tokens added: 73
+- Estimated saved tokens added: 21 (22.3% of recorded input)
+- RTK execution time added: 430ms
+
+Note: four feature-window `rtk rg` commands were not represented in RTK history. Two RTK pnpm attempts occurred, but only one was represented in history.

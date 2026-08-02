@@ -232,7 +232,7 @@ function categoryStyle(color: string): React.CSSProperties {
 export function calendarPeriodLabel(mode: CalendarMode, anchor: Date) {
   if (mode === "today") return isToday(anchor) ? `Today · ${format(anchor, "MMM d")}` : format(anchor, "EEEE, MMM d, yyyy");
   if (mode === "events") return "Future events";
-  if (mode === "agenda") return "Agenda";
+  if (mode === "agenda") return "My List";
   if (mode === "quarter") return `${format(anchor, "MMM")} – ${format(addMonths(anchor, 2), "MMM yyyy")}`;
   if (mode === "month") return format(anchor, "MMMM yyyy");
   const days = weekCalendarRange(anchor);

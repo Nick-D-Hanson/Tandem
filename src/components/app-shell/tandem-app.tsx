@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, ChevronRight, ListChecks, Menu, PanelLeftOpen, PanelRightOpen, Plus } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, ListChecks, Menu, NotebookTabs, PanelLeftOpen, PanelRightOpen, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -63,7 +63,7 @@ export function TandemApp({ data, initialView = "month", initialDate }: { data: 
     updateCalendar("today", localDate(dateKey(zonedNow(data.workspace.timezone))));
   }
 
-  const sidebar = <AppSidebar workspace={data.workspace} members={data.members} lists={data.lists} tasks={data.tasks} filter={filter} onFilter={setFilter} onAdd={() => openEditor({ type: "event", date: dateKey(anchor) })} onShowTasks={showTasks} onNavigate={() => setMobileNavOpen(false)} onCollapse={() => setLeftSidebarOpen(false)} />;
+  const sidebar = <AppSidebar surface="calendar" workspace={data.workspace} members={data.members} lists={data.lists} tasks={data.tasks} filter={filter} onFilter={setFilter} onAdd={() => openEditor({ type: "event", date: dateKey(anchor) })} onShowTasks={showTasks} onShowCalendar={() => { setMobileScreen("calendar"); setTaskOverlay(false); }} onShowAgenda={() => router.push("/app/my-list")} onNavigate={() => setMobileNavOpen(false)} onCollapse={() => setLeftSidebarOpen(false)} />;
   const desktopGrid = leftSidebarOpen ? (desktopTaskSidebarOpen ? "grid-cols-[236px_minmax(0,1fr)_340px]" : "grid-cols-[236px_minmax(0,1fr)_44px]") : (desktopTaskSidebarOpen ? "grid-cols-[44px_minmax(0,1fr)_340px]" : "grid-cols-[44px_minmax(0,1fr)_44px]");
   const tabletGrid = leftSidebarOpen ? "max-[1180px]:grid-cols-[220px_minmax(0,1fr)]" : "max-[1180px]:grid-cols-[44px_minmax(0,1fr)]";
 
@@ -76,7 +76,7 @@ export function TandemApp({ data, initialView = "month", initialDate }: { data: 
           {mode !== "events" && <div className="flex gap-0.5"><Button variant="ghost" size="icon" onClick={() => updateCalendar(mode, shiftCalendarPeriod(mode, anchor, -1))} aria-label="Previous period"><ChevronLeft /></Button><Button variant="ghost" size="icon" onClick={() => updateCalendar(mode, shiftCalendarPeriod(mode, anchor, 1))} aria-label="Next period"><ChevronRight /></Button></div>}
           <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight max-[820px]:text-base">{calendarPeriodLabel(mode, anchor)}</h1>
           <Select value={["today", "week", "month", "quarter"].includes(mode) ? mode : ""} onValueChange={(value) => { if (value === "today") goToToday(); else updateCalendar(value as CalendarMode); }}><SelectTrigger size="sm" className="w-[112px] shrink-0" aria-label="Calendar view"><SelectValue placeholder="Calendar" /></SelectTrigger><SelectContent align="end"><SelectItem value="today">Today</SelectItem><SelectItem value="week">Week</SelectItem><SelectItem value="month">Month</SelectItem><SelectItem value="quarter">3 Month</SelectItem></SelectContent></Select>
-          <div className="flex shrink-0 items-center gap-1 max-[820px]:hidden"><Button size="sm" variant={mode === "events" ? "secondary" : "ghost"} onClick={() => updateCalendar("events", zonedNow(data.workspace.timezone))}>Events</Button><Button size="sm" variant={mode === "agenda" ? "secondary" : "ghost"} onClick={() => updateCalendar("agenda")}>Agenda</Button></div>
+          <div className="flex shrink-0 items-center gap-1 max-[820px]:hidden"><Button size="sm" variant={mode === "events" ? "secondary" : "ghost"} onClick={() => updateCalendar("events", zonedNow(data.workspace.timezone))}>Events</Button><Button size="sm" variant="ghost" onClick={() => router.push("/app/my-list")}>My List</Button></div>
           <Button variant="outline" className="shrink-0 max-[1100px]:hidden" onClick={() => openEditor({ type: "event", date: dateKey(anchor) })}><Plus />Add</Button>
           {!taskOverlay && <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="min-[1181px]:hidden max-[820px]:hidden" onClick={() => setTaskOverlay(true)} aria-label="Show tasks sidebar"><PanelRightOpen /></Button></TooltipTrigger><TooltipContent>Show tasks</TooltipContent></Tooltip>}
         </header>
@@ -85,8 +85,9 @@ export function TandemApp({ data, initialView = "month", initialDate }: { data: 
       <TaskPanel tasks={data.tasks} lists={data.lists} members={data.members} timezone={data.workspace.timezone} filter={filter} onEdit={(id) => openEditor({ type: "task", id })} onAdd={() => openEditor({ type: "task" })} onClose={() => { setDesktopTaskSidebarOpen(false); setTaskOverlay(false); }} className={cn("max-[1180px]:hidden", desktopTaskSidebarOpen ? "min-[1181px]:flex" : "min-[1181px]:hidden", taskOverlay && "min-[821px]:max-[1180px]:fixed min-[821px]:max-[1180px]:top-[62px] min-[821px]:max-[1180px]:bottom-0 min-[821px]:max-[1180px]:right-0 min-[821px]:max-[1180px]:z-40 min-[821px]:max-[1180px]:flex min-[821px]:max-[1180px]:w-[min(360px,calc(100vw-44px))] min-[821px]:max-[1180px]:shadow-2xl", mobileScreen === "tasks" && "max-[820px]:fixed max-[820px]:inset-x-0 max-[820px]:top-[58px] max-[820px]:bottom-[66px] max-[820px]:z-20 max-[820px]:flex max-[820px]:border-l-0")} />
       {!desktopTaskSidebarOpen && <aside className="flex min-h-0 items-start justify-center border-l bg-card/95 pt-[14px] max-[1180px]:hidden" aria-label="Collapsed tasks sidebar"><Button variant="ghost" size="icon-sm" aria-label="Show tasks sidebar" onClick={() => setDesktopTaskSidebarOpen(true)}><PanelRightOpen /></Button></aside>}
       <Button size="icon-lg" className="fixed bottom-20 right-4 z-30 hidden size-13 rounded-full shadow-xl max-[820px]:inline-flex" onClick={() => openEditor({ type: "task", date: dateKey(anchor) })} aria-label="Add item"><Plus /></Button>
-      <nav className="fixed inset-x-0 bottom-0 z-30 hidden h-[66px] grid-cols-3 border-t bg-card/95 px-3 pb-[max(5px,env(safe-area-inset-bottom))] pt-1 backdrop-blur max-[820px]:grid" aria-label="Mobile navigation">
+      <nav className="fixed inset-x-0 bottom-0 z-30 hidden h-[66px] grid-cols-4 border-t bg-card/95 px-3 pb-[max(5px,env(safe-area-inset-bottom))] pt-1 backdrop-blur max-[820px]:grid" aria-label="Mobile navigation">
         <MobileNavButton active={mobileScreen === "calendar"} icon={CalendarDays} label="Calendar" onClick={() => { setMobileScreen("calendar"); setTaskOverlay(false); }} />
+        <MobileNavButton icon={NotebookTabs} label="My List" onClick={() => router.push("/app/my-list")} />
         <MobileNavButton icon={Plus} label="Add" onClick={() => openEditor({ type: "task", date: dateKey(anchor) })} />
         <MobileNavButton active={mobileScreen === "tasks"} icon={ListChecks} label="Tasks" onClick={showTasks} />
       </nav>

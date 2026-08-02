@@ -1,0 +1,32 @@
+{
+  "arm": "baseline",
+  "starting_commit": "6533a63ee4d64bd7d93025759fc7f5fd01ec17a4",
+  "prompt_sha256": "e7f71acb9eec283c1f938961ffdf5d0ded0a20c162ccd3a7fcc23526cfb3987f",
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "high",
+  "wall_clock_seconds": null,
+  "tokens": {
+    "input": null,
+    "cached_input": null,
+    "uncached_input": null,
+    "output": null,
+    "total": null
+  },
+  "tool_calls": null,
+  "failed_or_blocked_attempts": null,
+  "corrective_reruns_or_fallbacks": null,
+  "quality": {
+    "typecheck": null,
+    "lint": null,
+    "unit_tests": null,
+    "build": null,
+    "playwright": null,
+    "authenticated_browser_verification": null
+  },
+  "diff": {
+    "files": null,
+    "insertions": null,
+    "deletions": null
+  },
+  "comparability_notes": []
+}

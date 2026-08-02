@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, CheckCircle2, Clock3, Copy, Inbox, ListChecks, Loader2, Moon, MoreHorizontal, PanelLeftClose, Plus, Settings, Sun, Trash2 } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, Copy, Inbox, ListChecks, Loader2, Moon, MoreHorizontal, NotebookTabs, PanelLeftClose, Plus, Settings, Sun, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useState, useTransition } from "react";
@@ -23,7 +23,8 @@ import { absoluteInviteUrl } from "@/lib/invites";
 import type { ListView, MemberView, TaskView, WorkspaceView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter, onAdd, onShowTasks, onNavigate, onCollapse }: {
+export function AppSidebar({ surface = "calendar", workspace, members, lists, tasks, filter, onFilter, onAdd, onShowTasks, onShowCalendar, onShowAgenda, onNavigate, onCollapse }: {
+  surface?: "calendar" | "agenda";
   workspace: WorkspaceView;
   members: MemberView[];
   lists: ListView[];
@@ -32,6 +33,8 @@ export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter,
   onFilter: (filter: TaskFilter) => void;
   onAdd: () => void;
   onShowTasks: () => void;
+  onShowCalendar?: () => void;
+  onShowAgenda?: () => void;
   onNavigate?: () => void;
   onCollapse?: () => void;
 }) {
@@ -77,8 +80,9 @@ export function AppSidebar({ workspace, members, lists, tasks, filter, onFilter,
         <div className="flex min-h-9 items-center justify-between gap-1 px-1"><Brand /><div className="flex items-center gap-0.5"><Button variant="ghost" size="icon-sm" aria-label="Toggle dark mode" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>{resolvedTheme === "dark" ? <Sun /> : <Moon />}</Button>{onCollapse && <Button variant="ghost" size="icon-sm" className="max-[820px]:hidden" aria-label="Hide navigation sidebar" onClick={onCollapse}><PanelLeftClose /></Button>}</div></div>
         <Button className="justify-start" onClick={onAdd}><Plus />Add item</Button>
         <nav className="grid gap-1" aria-label="Primary">
-          <NavButton active={filter === "all"} icon={CalendarDays} label="Calendar" onClick={() => { onFilter("all"); onNavigate?.(); }} />
-          <NavButton active={filter === "all"} icon={ListChecks} label="All incomplete" count={open.length} onClick={() => choose("all")} />
+          <NavButton active={surface === "calendar"} icon={CalendarDays} label="Calendar" onClick={() => { onFilter("all"); onShowCalendar?.(); onNavigate?.(); }} />
+          <NavButton active={surface === "agenda"} icon={NotebookTabs} label="My List" onClick={() => { onShowAgenda?.(); onNavigate?.(); }} />
+          <NavButton active={surface === "calendar" && filter === "all"} icon={ListChecks} label="All incomplete" count={open.length} onClick={() => choose("all")} />
         </nav>
         <SidebarLabel>Smart views</SidebarLabel>
         <nav className="grid gap-1">

@@ -1,0 +1,44 @@
+{
+  "arm": "rtk",
+  "starting_commit": "6533a63ee4d64bd7d93025759fc7f5fd01ec17a4",
+  "window_start_utc": "2026-08-02T22:59:47.609Z",
+  "window_end_utc": "2026-08-02T23:23:47.928Z",
+  "wall_clock_seconds": 1440.319,
+  "tokens": {
+    "input": 8943076,
+    "cached_input": 8556800,
+    "uncached_input": 386276,
+    "output": 43721,
+    "reasoning_output_subset": 11634,
+    "total": 8986797
+  },
+  "tool_calls": 83,
+  "exec_calls": 73,
+  "wait_calls": 10,
+  "shell_tool_invocations": 58,
+  "patch_operations": 18,
+  "rtk_wrapped_work_attempts": 8,
+  "rtk_analytics_commands": 3,
+  "rtk_proxy_commands": 0,
+  "raw_only_shell_tool_invocations": 52,
+  "failed_or_blocked_attempts": 10,
+  "corrective_reruns_or_fallbacks": 9,
+  "reruns_due_to_insufficient_rtk_output": 0,
+  "rtk_feature_estimated_saved_tokens": 21,
+  "rtk_feature_recorded_input_tokens": 94,
+  "rtk_feature_estimated_reduction_percent": 22.3404255319,
+  "quality": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "unit_test_files_passed": 7,
+    "unit_tests_passed": 35,
+    "build": "passed",
+    "playwright": "2 skipped: credentials unavailable",
+    "authenticated_browser_verification": "not run: migration approval required"
+  },
+  "diff_before_evaluation_artifacts": {
+    "files": 27,
+    "insertions": 2127,
+    "deletions": 11
+  }
+}

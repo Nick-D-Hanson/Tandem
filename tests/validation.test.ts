@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { eventSchema, listSchema, taskSchema, workspaceSchema } from "@/lib/validation/schemas";
+import { agendaItemCreateSchema, agendaReorderSchema, agendaVisibilitySchema, agendaVisibleDaysSchema, eventSchema, listSchema, taskSchema, workspaceSchema } from "@/lib/validation/schemas";
 
 describe("mutation validation", () => {
   it("rejects an event whose end is before its start", () => {
@@ -36,5 +36,25 @@ describe("mutation validation", () => {
   it("rejects invalid workspace and list values", () => {
     expect(workspaceSchema.safeParse({ name: "", timezone: "", displayName: "" }).success).toBe(false);
     expect(listSchema.safeParse({ name: "Home", color: "blue" }).success).toBe(false);
+  });
+
+  it("accepts the supported Agenda preferences", () => {
+    expect(agendaVisibleDaysSchema.safeParse({ visibleDays: 3 }).success).toBe(true);
+    expect(agendaVisibleDaysSchema.safeParse({ visibleDays: 4 }).success).toBe(false);
+    expect(agendaVisibilitySchema.safeParse({ visibility: "private" }).success).toBe(true);
+    expect(agendaVisibilitySchema.safeParse({ visibility: "workspace" }).success).toBe(false);
+  });
+
+  it("trims Agenda content and enforces its length", () => {
+    const parsed = agendaItemCreateSchema.safeParse({ date: "2026-08-02", content: "  Call Mom  " });
+    expect(parsed.success && parsed.data.content).toBe("Call Mom");
+    expect(agendaItemCreateSchema.safeParse({ date: "2026-08-02", content: "   " }).success).toBe(false);
+    expect(agendaItemCreateSchema.safeParse({ date: "2026-08-02", content: "x".repeat(301) }).success).toBe(false);
+  });
+
+  it("rejects duplicate Agenda dates and item IDs in reorder payloads", () => {
+    const id = "2f8fcb8a-4adb-4c66-8e91-a91cf7ff5d63";
+    expect(agendaReorderSchema.safeParse({ days: [{ date: "2026-08-02", itemIds: [id] }, { date: "2026-08-03", itemIds: [id] }] }).success).toBe(false);
+    expect(agendaReorderSchema.safeParse({ days: [{ date: "2026-08-02", itemIds: [] }, { date: "2026-08-02", itemIds: [] }] }).success).toBe(false);
   });
 });

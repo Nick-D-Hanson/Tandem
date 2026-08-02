@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   pgTable,
@@ -139,8 +140,49 @@ export const events = pgTable(
   ],
 );
 
+export const agendaPreferences = pgTable(
+  "agenda_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    visibleDays: integer("visible_days").notNull().default(3),
+    isShared: boolean("is_shared").notNull().default(false),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("agenda_preferences_workspace_user_unique").on(table.workspaceId, table.userId),
+    index("agenda_preferences_workspace_user_idx").on(table.workspaceId, table.userId),
+    check("agenda_preferences_visible_days_check", sql`${table.visibleDays} between 1 and 3`),
+  ],
+);
+
+export const agendaItems = pgTable(
+  "agenda_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    ownerUserId: text("owner_user_id").notNull(),
+    agendaDate: date("agenda_date", { mode: "string" }).notNull(),
+    content: text("content").notNull(),
+    position: integer("position").notNull().default(0),
+    ...auditColumns,
+  },
+  (table) => [
+    index("agenda_items_owner_date_position_idx").on(table.workspaceId, table.ownerUserId, table.agendaDate, table.position),
+    check("agenda_items_content_check", sql`length(btrim(${table.content})) between 1 and 300`),
+    check("agenda_items_position_check", sql`${table.position} >= 0`),
+  ],
+);
+
 export type WorkspaceRow = typeof workspaces.$inferSelect;
 export type WorkspaceMemberRow = typeof workspaceMembers.$inferSelect;
 export type TaskListRow = typeof taskLists.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type EventRow = typeof events.$inferSelect;
+export type AgendaPreferenceRow = typeof agendaPreferences.$inferSelect;
+export type AgendaItemRow = typeof agendaItems.$inferSelect;

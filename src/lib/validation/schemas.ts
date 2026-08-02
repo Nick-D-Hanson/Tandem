@@ -71,6 +71,25 @@ export const listSchema = z.object({
 export const idSchema = z.object({ id: uuid });
 export const inviteTokenSchema = z.object({ token: z.string().min(40).max(200) });
 
+export const agendaVisibleDaysSchema = z.object({ visibleDays: z.union([z.literal(1), z.literal(2), z.literal(3)]) });
+export const agendaVisibilitySchema = z.object({ visibility: z.enum(["private", "shared"]) });
+export const agendaItemCreateSchema = z.object({
+  date: dateString,
+  content: z.string().trim().min(1, "Enter a My List item").max(300, "My List items can be up to 300 characters"),
+});
+export const agendaItemUpdateSchema = agendaItemCreateSchema.omit({ date: true }).extend({ id: uuid });
+export const agendaDaySchema = z.object({ date: dateString });
+export const agendaReorderSchema = z.object({
+  days: z.array(z.object({ date: dateString, itemIds: z.array(uuid) })).min(1).max(2),
+}).superRefine((value, context) => {
+  const dates = value.days.map((day) => day.date);
+  if (new Set(dates).size !== dates.length) context.addIssue({ code: "custom", message: "My List days must be unique", path: ["days"] });
+  const itemIds = value.days.flatMap((day) => day.itemIds);
+  if (new Set(itemIds).size !== itemIds.length) context.addIssue({ code: "custom", message: "My List items must be unique", path: ["days"] });
+});
+
 export type EventInput = z.infer<typeof eventSchema>;
 export type TaskInput = z.infer<typeof taskSchema>;
 export type ListInput = z.infer<typeof listSchema>;
+export type AgendaItemCreateInput = z.infer<typeof agendaItemCreateSchema>;
+export type AgendaReorderInput = z.infer<typeof agendaReorderSchema>;
