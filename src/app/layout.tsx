@@ -7,7 +7,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
-  description: "A calm shared calendar and task workspace for two people.",
+  description: "A calm shared calendar and task workspace for couples, families, and groups.",
 };
 
 export default function RootLayout({

@@ -76,7 +76,9 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
             title,
             date: String(formData.get("date") || ""),
             endDate: String(formData.get("endDate") || ""),
-            allDay: true,
+            allDay: !formData.get("startTime") && !formData.get("endTime"),
+            startTime: String(formData.get("startTime") || ""),
+            endTime: String(formData.get("endTime") || ""),
             description: String(formData.get("description") || ""),
             location: String(formData.get("location") || ""),
             listId: String(formData.get("listId") || ""),
@@ -114,7 +116,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[560px] max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:border-b-0">
-          <DialogHeader><DialogTitle>{isEditing ? `Edit ${type}` : "Add item"}</DialogTitle><DialogDescription>Shared with both workspace members.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>{isEditing ? `Edit ${type}` : "Add item"}</DialogTitle><DialogDescription>Shared with everyone in this workspace.</DialogDescription></DialogHeader>
           <Tabs value={type} onValueChange={(value) => setType(value as "event" | "task")}>
             <TabsList className="grid h-11 w-full grid-cols-2 gap-2 bg-transparent p-0">
               <TabsTrigger value="event" disabled={isEditing && type === "task"} className="h-full rounded-lg border bg-background text-sm font-semibold data-[state=active]:border-event data-[state=active]:bg-event data-[state=active]:text-white data-[state=active]:shadow-md dark:data-[state=active]:text-slate-950"><CalendarDays className="size-4" />Event</TabsTrigger>
@@ -124,7 +126,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
           <form action={submit} className="space-y-4">
             <div className="space-y-2"><Label htmlFor="item-title">Title</Label><Input id="item-title" name="title" autoFocus required maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={type === "event" ? "What’s happening?" : "What needs to be done?"} /></div>
             {type === "event" ? (
-              <EventFields event={event} eventParts={eventParts} eventEndDate={eventEndDate} fallbackDate={fallbackDate} lists={lists} />
+              <EventFields event={event} eventParts={eventParts} eventEndParts={eventEndParts} eventEndDate={eventEndDate} fallbackDate={fallbackDate} lists={lists} />
             ) : (
               <TaskFields task={task} taskParts={taskParts} fallbackDate={selection?.date} lists={lists} members={members} />
             )}
@@ -137,14 +139,15 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
           </form>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this {type}?</AlertDialogTitle><AlertDialogDescription>This removes it for both workspace members and can’t be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep it</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={remove}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this {type}?</AlertDialogTitle><AlertDialogDescription>This removes it for everyone in the workspace and can’t be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep it</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={remove}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>
   );
 }
 
-function EventFields({ event, eventParts, eventEndDate, fallbackDate, lists }: {
+function EventFields({ event, eventParts, eventEndParts, eventEndDate, fallbackDate, lists }: {
   event?: EventView;
   eventParts: { date: string; time: string } | null;
+  eventEndParts: { date: string; time: string } | null;
   eventEndDate: string | null;
   fallbackDate: string;
   lists: ListView[];
@@ -160,6 +163,9 @@ function EventFields({ event, eventParts, eventEndDate, fallbackDate, lists }: {
   return <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
     <div className="space-y-2"><Label htmlFor="event-date">Start date</Label><Input id="event-date" name="date" type="date" required value={startDate} onChange={(event) => changeStartDate(event.target.value)} /></div>
     <div className="space-y-2"><Label htmlFor="event-end-date">End date</Label><Input id="event-end-date" name="endDate" type="date" required min={startDate} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div>
+    <div className="space-y-2"><Label htmlFor="event-start-time">Start time <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="event-start-time" name="startTime" type="time" defaultValue={event && !event.allDay ? eventParts?.time ?? "" : ""} /></div>
+    <div className="space-y-2"><Label htmlFor="event-end-time">End time <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="event-end-time" name="endTime" type="time" defaultValue={event && !event.allDay ? eventEndParts?.time ?? "" : ""} /></div>
+    <p className="col-span-full -mt-2 text-xs text-muted-foreground">Leave both times empty for an all-day event.</p>
     <div className="space-y-2"><Label htmlFor="location">Location</Label><Input id="location" name="location" defaultValue={event?.location ?? ""} placeholder="Optional" /></div>
     <SelectField label="Category" name="listId" defaultValue={event?.listId ?? "uncategorized"} options={[{ value: "uncategorized", label: "Uncategorized", color: "#64748b" }, ...lists.map((list) => ({ value: list.id, label: list.name, color: list.color }))]} transformValue={(value) => value === "uncategorized" ? "" : value} />
     <RecurrenceFields rule={event?.recurrence ?? null} baseDate={eventParts?.date ?? fallbackDate} />

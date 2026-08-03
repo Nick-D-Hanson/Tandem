@@ -15,7 +15,6 @@ export function actionFailure(error: unknown): ActionResult<never> {
     const friendly: Record<string, string> = {
       AUTH_REQUIRED: "Please sign in to continue.",
       WORKSPACE_REQUIRED: "Create a workspace first.",
-      WORKSPACE_FULL: "This workspace already has two members.",
       ALREADY_HAS_WORKSPACE: "You already belong to a workspace.",
       INVITE_INVALID: "This invite is invalid, expired, or already used.",
       NOT_FOUND: "That item is no longer available.",

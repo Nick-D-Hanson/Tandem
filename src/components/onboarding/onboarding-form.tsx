@@ -47,7 +47,7 @@ export function OnboardingForm({ defaultDisplayName }: { defaultDisplayName: str
         <CardHeader>
           <div className="mb-2 grid size-11 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"><Check /></div>
           <CardTitle>Your shared space is ready</CardTitle>
-          <CardDescription>Send this private, seven-day invite link to the one person joining you.</CardDescription>
+          <CardDescription>Send this private, single-use seven-day invite link to the first person joining you. You can invite more members from Settings.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2"><Input readOnly value={inviteLink} aria-label="Invite link" /><Button type="button" variant="outline" size="icon" onClick={copyInvite} aria-label="Copy invite link"><Copy /></Button></div>

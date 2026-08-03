@@ -24,8 +24,18 @@ describe("mutation validation", () => {
   });
 
   it("accepts a multi-day event without times", () => {
-    const result = eventSchema.safeParse({ title: "Vacation", date: "2026-08-02", endDate: "2026-08-08", allDay: false, listId: "", recurrence: null });
+    const result = eventSchema.safeParse({ title: "Vacation", date: "2026-08-02", endDate: "2026-08-08", allDay: true, startTime: "", endTime: "", listId: "", recurrence: null });
     expect(result.success).toBe(true);
+  });
+
+  it("accepts a multi-day event with start and end times", () => {
+    const result = eventSchema.safeParse({ title: "Conference", date: "2026-08-02", endDate: "2026-08-04", allDay: false, startTime: "09:00", endTime: "17:00", listId: "", recurrence: null });
+    expect(result.success).toBe(true);
+  });
+
+  it("requires event start and end times to be entered together", () => {
+    const result = eventSchema.safeParse({ title: "Dinner", date: "2026-08-02", endDate: "2026-08-02", allDay: false, startTime: "19:00", endTime: "", listId: "", recurrence: null });
+    expect(result.success).toBe(false);
   });
 
   it("rejects a multi-day event whose end date is before its start", () => {

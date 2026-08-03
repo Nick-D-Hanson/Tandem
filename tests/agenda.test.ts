@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isCompleteAgendaReorder, moveAgendaItem, normalizeAgendaOrder, type AgendaOrderItem } from "@/lib/agenda/ordering";
-import { buildAgendaDays } from "@/lib/agenda/view";
+import { buildAgendaDays, isAgendaEmpty } from "@/lib/agenda/view";
 import type { AgendaItemView } from "@/lib/types";
 
 const first: AgendaOrderItem = { id: "first", date: "2026-08-02", position: 0 };
@@ -51,5 +51,12 @@ describe("Agenda day projection", () => {
     const days = buildAgendaDays({ yesterday: "2026-08-01", future: ["2026-08-02", "2026-08-03", "2026-08-04"], visibleDays: 1, items: [item("today", "2026-08-02")] });
     expect(days).toHaveLength(1);
     expect(days[0].items).toHaveLength(1);
+  });
+
+  it("detects when every visible My List day is empty", () => {
+    const emptyDays = buildAgendaDays({ yesterday: "2026-08-01", future: ["2026-08-02", "2026-08-03", "2026-08-04"], visibleDays: 3, items: [] });
+    const populatedDays = buildAgendaDays({ yesterday: "2026-08-01", future: ["2026-08-02", "2026-08-03", "2026-08-04"], visibleDays: 3, items: [item("today", "2026-08-02")] });
+    expect(isAgendaEmpty(emptyDays)).toBe(true);
+    expect(isAgendaEmpty(populatedDays)).toBe(false);
   });
 });

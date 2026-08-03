@@ -119,12 +119,12 @@ export async function saveEventAction(input: unknown): Promise<ActionResult<{ id
     const { user, membership } = await requireWorkspace();
     const timezone = await getWorkspaceTimezone(membership.workspaceId);
     const value = parsed.data;
-    const allDay = true;
+    const allDay = !value.startTime && !value.endTime;
     const category = await getCategory(membership.workspaceId, value.listId || undefined);
-    const startAt = localDateTimeToUtc({ date: value.date, time: allDay ? null : value.startTime }, timezone);
+    const startAt = localDateTimeToUtc({ date: value.date, time: value.startTime || null }, timezone);
     const endAt = allDay
       ? localDateTimeToUtc({ date: dateKey(addDays(localDate(value.endDate), 1)), time: null }, timezone)
-      : localDateTimeToUtc({ date: value.endDate, time: value.endTime }, timezone);
+      : localDateTimeToUtc({ date: value.endDate, time: value.endTime || null }, timezone);
     const data = {
       title: value.title,
       description: value.description || null,

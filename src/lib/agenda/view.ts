@@ -7,3 +7,7 @@ export function buildAgendaDays(input: { yesterday: string; future: string[]; vi
     ...input.future.slice(0, input.visibleDays).map((date) => ({ date, items: input.items.filter((item) => item.date === date), isYesterday: false })),
   ];
 }
+
+export function isAgendaEmpty(days: AgendaDayView[]) {
+  return days.every((day) => day.items.length === 0);
+}

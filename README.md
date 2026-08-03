@@ -1,10 +1,10 @@
 # Tandem
 
-Tandem is a production-minded two-person shared calendar and task workspace built with Next.js App Router, Neon Auth, Neon Postgres, Drizzle, Tailwind CSS, and shadcn/ui.
+Tandem is a production-minded shared calendar and task workspace for couples, families, and groups, built with Next.js App Router, Neon Auth, Neon Postgres, Drizzle, Tailwind CSS, and shadcn/ui.
 
 ## Product scope
 
-- Exactly two equal workspace members, with hashed seven-day invite links.
+- One-to-many equal workspace members, with hashed, single-use seven-day invite links.
 - Shared Month, Week, and Agenda calendar views.
 - Timed/all-day/recurring events with locations, descriptions, and categories.
 - Inbox, Today, Upcoming, Completed, and custom shared task lists.
@@ -30,7 +30,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), create an account through Neon Auth, then create the first workspace. The app returns a private link for the second user.
+Open [http://localhost:3000](http://localhost:3000), create an account through Neon Auth, then create the first workspace. The app returns a private link for the next member; additional members can be invited sequentially from Settings.
 
 ## Database workflow
 
@@ -61,7 +61,7 @@ The Playwright happy path requires `E2E_EMAIL` and `E2E_PASSWORD` for a Neon Aut
 - Server Components load the authenticated workspace and serialize only the data needed by the interactive shell.
 - Server Actions own every mutation and re-check authentication, active workspace membership, item ownership, assignees, list IDs, dates, and recurrence values with shared Zod schemas.
 - Neon Auth owns identities. Application membership references its user IDs as text and keeps product data in the public schema.
-- Neon HTTP + Drizzle handles server-only database access. Invite acceptance uses one row-locking SQL statement so concurrent requests cannot create a third member.
+- Neon HTTP + Drizzle handles server-only database access. Invite acceptance uses one row-locking SQL statement and each invite can be accepted only once.
 - UTC instants are stored in Postgres. `src/lib/dates/timezone.ts` centralizes conversion to and from the workspace IANA timezone, including all-day dates.
 - View state stays client-side and durable calendar state is reflected in `view` and `date` URL parameters.
 

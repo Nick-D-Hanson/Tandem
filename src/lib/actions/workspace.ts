@@ -80,8 +80,6 @@ async function createInviteForWorkspace(workspaceId: string, userId: string) {
 export async function createInviteAction(): Promise<ActionResult<{ invitePath: string }>> {
   try {
     const { user, membership } = await requireWorkspace();
-    const memberCount = await db.select({ id: workspaceMembers.id }).from(workspaceMembers).where(eq(workspaceMembers.workspaceId, membership.workspaceId));
-    if (memberCount.length >= 2) throw new Error("WORKSPACE_FULL");
     const invitePath = await createInviteForWorkspace(membership.workspaceId, user.id);
     return { ok: true, data: { invitePath } };
   } catch (error) {
@@ -135,7 +133,6 @@ export async function acceptInviteAction(input: { token: string; displayName: st
         SELECT lw.id, ${user.id}, ${input.displayName.trim()}, ${user.image}
         FROM locked_workspace lw
         WHERE NOT EXISTS (SELECT 1 FROM workspace_members own WHERE own.user_id = ${user.id})
-          AND (SELECT count(*) FROM workspace_members count_members WHERE count_members.workspace_id = lw.id) < 2
         RETURNING workspace_id
       ), accepted_invite AS (
         UPDATE workspace_invites wi

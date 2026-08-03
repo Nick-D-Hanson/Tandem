@@ -2,7 +2,7 @@
 
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Eye, EyeOff, Loader2, Users } from "lucide-react";
+import { Eye, EyeOff, Loader2, Plus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { clearAgendaDay, createAgendaItem, deleteAgendaItem, reorderAgendaItems, updateAgendaItem, updateAgendaVisibility, updateAgendaVisibleDays } from "@/lib/actions/agenda";
 import { moveAgendaItem } from "@/lib/agenda/ordering";
+import { isAgendaEmpty } from "@/lib/agenda/view";
 import type { AgendaData, AgendaItemView, AgendaOwnerView } from "@/lib/types";
 
 export function AgendaView({ data }: { data: AgendaData }) {
@@ -30,6 +31,7 @@ export function AgendaView({ data }: { data: AgendaData }) {
 
   const selected = agendas.find((agenda) => agenda.ownerUserId === selectedOwnerId) ?? agendas[0];
   const ownAgenda = agendas.find((agenda) => agenda.ownerUserId === data.currentUserId);
+  const selectedIsEmpty = selected ? isAgendaEmpty(selected.days) : false;
 
   function replaceAgenda(ownerUserId: string, update: (agenda: AgendaOwnerView) => AgendaOwnerView) {
     setAgendas((current) => current.map((agenda) => agenda.ownerUserId === ownerUserId ? update(agenda) : agenda));
@@ -143,11 +145,12 @@ export function AgendaView({ data }: { data: AgendaData }) {
             {[1, 2, 3].map((days) => <ToggleGroupItem key={days} value={String(days)} aria-label={`Show ${days} day${days === 1 ? "" : "s"}`}>{days}d</ToggleGroupItem>)}
           </ToggleGroup>
           {pending && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Saving" />}
-          <span className="w-full text-xs text-muted-foreground lg:w-auto">A visible My List is read-only to your workspace partner.</span>
+          <span className="w-full text-xs text-muted-foreground lg:w-auto">A visible My List is read-only to other workspace members.</span>
         </div> : <Badge variant="secondary" className="w-fit"><Eye className="size-3" />Shared read-only</Badge>}
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3 md:p-4">
         {!selected.canEdit && <div className="mb-3 rounded-lg border bg-muted/35 px-3 py-2 text-sm text-muted-foreground">{selected.displayName} shared this list with your workspace. Only they can change it.</div>}
+        {selected.canEdit && selectedIsEmpty && <div className="mx-auto mb-3 flex w-full max-w-4xl items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/25 px-4 py-5 text-center text-sm text-muted-foreground"><Plus className="size-4 shrink-0" /><p>Nothing Added Yet, Click Plus to Add a Task to Your List</p></div>}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={dragEnd}>
           <div className="mx-auto grid w-full max-w-4xl min-w-0 grid-cols-1 gap-3">
             {selected.days.map((day) => <AgendaDay key={day.date} day={day} today={data.today} canEdit={selected.canEdit} onCreate={createItem} onUpdate={updateItem} onDelete={removeItem} onClear={setClearDate} />)}

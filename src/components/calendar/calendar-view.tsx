@@ -18,6 +18,8 @@ type CalendarItem = {
   title: string;
   date: string;
   time: string | null;
+  endTime: string | null;
+  durationMinutes: number | null;
   allDay: boolean;
   completed: boolean;
   location?: string | null;
@@ -76,13 +78,24 @@ function itemsForDate(date: string, timezone: string, tasks: TaskView[], events:
     const occurrenceStart = occurrenceStartOnDate(event, date, timezone);
     if (!occurrenceStart) return [];
     const parts = utcToLocalParts(event.startAt, timezone);
-    return [{ id: event.id, type: "event" as const, title: event.title, date, time: event.allDay || occurrenceStart !== date ? null : parts.time, allDay: event.allDay || occurrenceStart !== date, completed: false, location: event.location, description: event.description, color: calendarColor(event.color), createdAt: event.createdAt }];
+    const endParts = utcToLocalParts(event.endAt, timezone);
+    const isTimedStart = !event.allDay && occurrenceStart === date;
+    const startMinutes = timeToMinutes(parts.time);
+    const eventDurationMinutes = Math.max(15, (new Date(event.endAt).getTime() - new Date(event.startAt).getTime()) / 60_000);
+    return [{ id: event.id, type: "event" as const, title: event.title, date, time: isTimedStart ? parts.time : null, endTime: isTimedStart ? endParts.time : null, durationMinutes: isTimedStart ? Math.min(eventDurationMinutes, 1440 - startMinutes) : null, allDay: !isTimedStart, completed: false, location: event.location, description: event.description, color: calendarColor(event.color), createdAt: event.createdAt }];
   });
   const taskItems = tasks.filter((task) => task.dueAt && utcToLocalParts(task.dueAt, timezone).date === date).map((task) => {
     const parts = utcToLocalParts(task.dueAt!, timezone);
-    return { id: task.id, type: "task" as const, title: task.title, date, time: task.dueIsAllDay ? null : parts.time, allDay: task.dueIsAllDay, completed: Boolean(task.completedAt), description: task.notes, color: lists.find((list) => list.id === task.listId)?.color ?? "#64748b", createdAt: task.createdAt };
+    return { id: task.id, type: "task" as const, title: task.title, date, time: task.dueIsAllDay ? null : parts.time, endTime: null, durationMinutes: null, allDay: task.dueIsAllDay, completed: Boolean(task.completedAt), description: task.notes, color: lists.find((list) => list.id === task.listId)?.color ?? "#64748b", createdAt: task.createdAt };
   });
-  return [...eventItems, ...taskItems].sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+  return [...eventItems, ...taskItems].sort(compareCalendarItems);
+}
+
+export function compareCalendarItems(a: Pick<CalendarItem, "time" | "createdAt">, b: Pick<CalendarItem, "time" | "createdAt">) {
+  if (a.time && b.time) return a.time.localeCompare(b.time) || b.createdAt.localeCompare(a.createdAt);
+  if (a.time) return 1;
+  if (b.time) return -1;
+  return b.createdAt.localeCompare(a.createdAt);
 }
 
 function MonthView({ anchor, timezone, tasks, events, lists, onSelect }: Omit<React.ComponentProps<typeof CalendarView>, "mode">) {
@@ -123,7 +136,12 @@ function CalendarPill({ item, onSelect }: { item: CalendarItem; onSelect: (selec
 function WeekView({ anchor, timezone, tasks, events, lists, onSelect }: Omit<React.ComponentProps<typeof CalendarView>, "mode">) {
   const days = weekCalendarRange(anchor);
   const dayKeys = days.map(dateKey);
-  const allDayItems = dayKeys.map((date) => itemsForDate(date, timezone, tasks, events, lists).filter((item) => item.allDay).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+  const itemsByDay = new Map(dayKeys.map((date) => [date, itemsForDate(date, timezone, tasks, events, lists)]));
+  const allDayItems = dayKeys.map((date) => itemsByDay.get(date)?.filter((item) => item.allDay) ?? []);
+  const timedItems = [...itemsByDay.values()].flat().filter((item) => item.time);
+  const firstHour = Math.min(7, ...timedItems.map((item) => Math.floor(timeToMinutes(item.time!) / 60)));
+  const lastHour = Math.max(20, ...timedItems.map((item) => Math.ceil((timeToMinutes(item.time!) + (item.durationMinutes ?? 30)) / 60) - 1));
+  const visibleHours = Array.from({ length: lastHour - firstHour + 1 }, (_, index) => firstHour + index);
   return (
     <div className="min-h-0 flex-1 overflow-auto" data-testid="week-view">
       <div className="grid min-w-[560px] grid-cols-[56px_repeat(7,minmax(0,1fr))]">
@@ -131,18 +149,33 @@ function WeekView({ anchor, timezone, tasks, events, lists, onSelect }: Omit<Rea
         {days.map((day) => <div key={dateKey(day)} className="sticky top-0 z-20 border-b border-r bg-card p-2 text-center"><span className="block text-[11px] font-semibold uppercase text-muted-foreground">{format(day, "EEE")}</span><strong className={cn("mx-auto mt-0.5 grid size-7 place-items-center rounded-full", isToday(day) && "bg-primary text-primary-foreground")}>{format(day, "d")}</strong></div>)}
         <div className="border-b border-r px-2 py-2 text-right text-[10px] font-semibold uppercase text-muted-foreground">All day</div>
         {allDayItems.map((items, dayIndex) => <div key={dayKeys[dayIndex]} className="min-h-20 min-w-0 overflow-hidden border-b border-r p-1.5"><div className="grid min-w-0 gap-1.5">{items.map((item) => <WeekAllDayItem key={`${item.type}-${item.id}`} item={item} onSelect={onSelect} />)}</div></div>)}
-        {Array.from({ length: 14 }, (_, hourIndex) => hourIndex + 7).map((hour) => (
+        {visibleHours.map((hour) => (
           <div className="contents" key={hour}>
             <div className="h-14 border-b border-r px-2 pt-1 text-right text-[11px] text-muted-foreground">{formatTime(`${String(hour).padStart(2, "0")}:00`)}</div>
             {dayKeys.map((date) => {
-              const items = itemsForDate(date, timezone, tasks, events, lists).filter((item) => !item.allDay && Number(item.time?.slice(0, 2)) === hour);
-              return <div key={`${date}-${hour}`} className="relative h-14 min-w-0 cursor-pointer overflow-hidden border-b border-r p-1 hover:bg-secondary/60" onClick={() => onSelect({ type: "event", date, time: `${String(hour).padStart(2, "0")}:00` })}>{items.map((item) => <ItemHoverDetails key={`${item.type}-${item.id}`} title={item.title} description={item.description} meta={formatTime(item.time!)}><button onClick={(event) => { event.stopPropagation(); onSelect({ type: item.type, id: item.id }); }} className={cn("block w-full min-w-0 truncate rounded-md border-l-[3px] px-1.5 py-1 text-left text-[11px] font-semibold text-foreground", item.completed && "line-through opacity-50")} style={categoryStyle(item.color)}>{item.title}<span className="block truncate text-[10px] font-normal">{formatTime(item.time!)}</span></button></ItemHoverDetails>)}</div>;
+              const items = itemsByDay.get(date)?.filter((item) => !item.allDay && Number(item.time?.slice(0, 2)) === hour) ?? [];
+              return <div key={`${date}-${hour}`} className="relative h-14 min-w-0 cursor-pointer overflow-visible border-b border-r hover:bg-secondary/60" onClick={() => onSelect({ type: "event", date, time: `${String(hour).padStart(2, "0")}:00` })}>{items.map((item, itemIndex) => {
+                const layout = timedCalendarItemLayout(item.time!, item.durationMinutes, itemIndex, items.length);
+                const timeLabel = item.endTime ? `${formatTime(item.time!)}–${formatTime(item.endTime)}` : formatTime(item.time!);
+                return <ItemHoverDetails key={`${item.type}-${item.id}`} title={item.title} description={item.description} meta={timeLabel}><button onClick={(event) => { event.stopPropagation(); onSelect({ type: item.type, id: item.id }); }} className={cn("absolute z-10 min-w-0 overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-[11px] font-semibold text-foreground shadow-sm hover:z-20 hover:brightness-95", item.completed && "line-through opacity-50")} style={{ ...categoryStyle(item.color), ...layout }}>{item.title}<span className="block truncate text-[10px] font-normal">{timeLabel}</span></button></ItemHoverDetails>;
+              })}</div>;
             })}
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+export function timedCalendarItemLayout(time: string, durationMinutes: number | null, itemIndex = 0, itemCount = 1): React.CSSProperties {
+  const minutesIntoHour = timeToMinutes(time) % 60;
+  const columnWidth = 100 / itemCount;
+  return {
+    top: `${(minutesIntoHour / 60) * 56}px`,
+    height: `${Math.max(24, ((durationMinutes ?? 30) / 60) * 56)}px`,
+    left: `calc(${itemIndex * columnWidth}% + 4px)`,
+    width: `calc(${columnWidth}% - 6px)`,
+  };
 }
 
 function WeekAllDayItem({ item, onSelect }: { item: CalendarItem; onSelect: (selection: CalendarSelection) => void }) {
@@ -165,16 +198,19 @@ function FutureEventsView({ timezone, events, lists, onSelect }: Pick<React.Comp
     const startDate = nextEventOccurrence(event, today, timezone);
     if (!startDate) return [];
     const range = eventDateRange(event, timezone);
-    return [{ event, startDate, endDate: dateKey(addDays(localDate(startDate), range.duration)) }];
-  }).sort((a, b) => a.startDate.localeCompare(b.startDate) || a.event.createdAt.localeCompare(b.event.createdAt));
+    const time = event.allDay ? null : utcToLocalParts(event.startAt, timezone).time;
+    return [{ event, startDate, endDate: dateKey(addDays(localDate(startDate), range.duration)), time }];
+  }).sort((a, b) => a.startDate.localeCompare(b.startDate) || compareCalendarItems({ time: a.time, createdAt: a.event.createdAt }, { time: b.time, createdAt: b.event.createdAt }));
 
-  return <div className="min-h-0 flex-1 overflow-auto" data-testid="events-view"><div className="mx-auto grid max-w-4xl gap-4 p-4 pb-24"><div><h2 className="text-lg font-semibold">All future events</h2><p className="text-sm text-muted-foreground">One-time events and the next occurrence of each recurring series.</p></div>{upcoming.length === 0 && <div className="grid place-items-center gap-2 py-20 text-center text-muted-foreground"><CalendarCheck2 className="size-9" /><p>No future events scheduled.</p></div>}{upcoming.map(({ event, startDate, endDate }) => <FutureEventCard key={event.id} event={event} startDate={startDate} endDate={endDate} lists={lists} onSelect={onSelect} />)}</div></div>;
+  return <div className="min-h-0 flex-1 overflow-auto" data-testid="events-view"><div className="mx-auto grid max-w-4xl gap-4 p-4 pb-24"><div><h2 className="text-lg font-semibold">All future events</h2><p className="text-sm text-muted-foreground">One-time events and the next occurrence of each recurring series.</p></div>{upcoming.length === 0 && <div className="grid place-items-center gap-2 py-20 text-center text-muted-foreground"><CalendarCheck2 className="size-9" /><p>No future events scheduled.</p></div>}{upcoming.map(({ event, startDate, endDate }) => <FutureEventCard key={event.id} event={event} startDate={startDate} endDate={endDate} timezone={timezone} lists={lists} onSelect={onSelect} />)}</div></div>;
 }
 
-function FutureEventCard({ event, startDate, endDate, lists, onSelect }: { event: EventView; startDate: string; endDate: string; lists: ListView[]; onSelect: (selection: CalendarSelection) => void }) {
+function FutureEventCard({ event, startDate, endDate, timezone, lists, onSelect }: { event: EventView; startDate: string; endDate: string; timezone: string; lists: ListView[]; onSelect: (selection: CalendarSelection) => void }) {
   const category = lists.find((list) => list.id === event.listId);
   const color = calendarColor(event.color);
-  return <ItemHoverDetails title={event.title} description={event.description} meta={event.location}><button type="button" onClick={() => onSelect({ type: "event", id: event.id })} className="grid w-full grid-cols-[140px_1fr] gap-4 rounded-xl border border-l-4 bg-card p-4 text-left hover:bg-secondary/50 max-sm:grid-cols-1 max-sm:gap-2" style={{ borderLeftColor: color }}><div><span className="flex items-center gap-1.5 text-sm font-semibold"><CalendarDays className="size-4" />{formatEventDateRange(startDate, endDate)}</span>{event.recurrence && <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Repeat2 className="size-3" />{recurrenceLabel(event.recurrence)}</span>}</div><div className="min-w-0"><strong className="block text-base">{event.title}</strong>{event.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{event.description}</p>}<div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">{event.location && <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{event.location}</span>}<span className="inline-flex items-center gap-1"><span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />{category?.name ?? "Uncategorized"}</span></div></div></button></ItemHoverDetails>;
+  const startTime = event.allDay ? null : utcToLocalParts(event.startAt, timezone).time;
+  const endTime = event.allDay ? null : utcToLocalParts(event.endAt, timezone).time;
+  return <ItemHoverDetails title={event.title} description={event.description} meta={event.location}><button type="button" onClick={() => onSelect({ type: "event", id: event.id })} className="grid w-full grid-cols-[140px_1fr] gap-4 rounded-xl border border-l-4 bg-card p-4 text-left hover:bg-secondary/50 max-sm:grid-cols-1 max-sm:gap-2" style={{ borderLeftColor: color }}><div><span className="flex items-center gap-1.5 text-sm font-semibold"><CalendarDays className="size-4" />{formatEventDateRange(startDate, endDate)}</span>{startTime && endTime && <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3" />{formatTime(startTime)}–{formatTime(endTime)}</span>}{event.recurrence && <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Repeat2 className="size-3" />{recurrenceLabel(event.recurrence)}</span>}</div><div className="min-w-0"><strong className="block text-base">{event.title}</strong>{event.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{event.description}</p>}<div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">{event.location && <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{event.location}</span>}<span className="inline-flex items-center gap-1"><span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />{category?.name ?? "Uncategorized"}</span></div></div></button></ItemHoverDetails>;
 }
 
 function eventDateRange(event: EventView, timezone: string) {
@@ -248,4 +284,9 @@ export function shiftCalendarPeriod(mode: CalendarMode, anchor: Date, amount: nu
 export function formatTime(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(2000, 0, 1, hours, minutes));
+}
+
+function timeToMinutes(time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
 }

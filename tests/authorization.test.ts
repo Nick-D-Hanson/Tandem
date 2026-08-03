@@ -19,7 +19,7 @@ describe("authorization invariants", () => {
     expect(canReadAgenda({ viewerUserId: "member-a", ownerUserId: "member-a", sameWorkspace: true, isShared: false })).toBe(true);
   });
 
-  it("allows a workspace partner to read an explicitly shared Agenda", () => {
+  it("allows a workspace member to read an explicitly shared Agenda", () => {
     expect(canReadAgenda({ viewerUserId: "member-b", ownerUserId: "member-a", sameWorkspace: true, isShared: true })).toBe(true);
     expect(() => assertAgendaReadAccess({ viewerUserId: "member-b", ownerUserId: "member-a", sameWorkspace: true, isShared: false })).toThrow("NOT_FOUND");
   });

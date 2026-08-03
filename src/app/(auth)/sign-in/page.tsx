@@ -10,5 +10,5 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const [{ data: session }, query] = await Promise.all([auth.getSession(), searchParams]);
   if (session?.user) redirect(query.redirectTo?.startsWith("/") ? query.redirectTo : "/app/my-list");
   const redirectTo = query.redirectTo?.startsWith("/") ? query.redirectTo : "/app/my-list";
-  return <AuthShell eyebrow="Two people. One calm place to plan."><AuthView path="sign-in" redirectTo={redirectTo} /></AuthShell>;
+  return <AuthShell eyebrow="One shared place for couples, families, and everyone you plan with."><AuthView path="sign-in" redirectTo={redirectTo} /></AuthShell>;
 }
