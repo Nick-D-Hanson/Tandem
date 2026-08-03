@@ -4,7 +4,7 @@ Last updated: August 2, 2026
 
 Repository: `Nick-D-Hanson/Tandem`
 
-Production: <https://tandem-n-dw2023s-projects.vercel.app>
+Production: <https://tandem-planner.vercel.app>
 
 ## Purpose of this document
 
@@ -521,7 +521,7 @@ Major UI changes are additionally verified in the local in-app browser before co
 
 - Source control: private GitHub repository on `main`.
 - Hosting: linked Vercel project.
-- Production alias: <https://tandem-n-dw2023s-projects.vercel.app>
+- Production alias: <https://tandem-planner.vercel.app>
 - Framework detection: Next.js.
 - Production deployment is performed after local approval with an explicit Vercel production deployment and READY-state confirmation.
 - Database migrations are separate from application deployment and are run automatically by the development agent only when a schema change requires them and the user approves execution.
