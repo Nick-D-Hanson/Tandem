@@ -8,6 +8,6 @@ export const dynamic = "force-dynamic";
 
 export default async function ForgotPasswordPage() {
   const { data: session } = await auth.getSession();
-  if (session?.user) redirect("/app");
+  if (session?.user) redirect("/app/my-list");
   return <AuthShell eyebrow="We’ll help you get back to your shared plan."><AuthView path="forgot-password" /></AuthShell>;
 }

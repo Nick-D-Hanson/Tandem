@@ -21,7 +21,7 @@ export function InviteCard({ token, workspaceName, defaultName }: { token: strin
       const result = await acceptInviteAction({ token, displayName: String(formData.get("displayName") || "") });
       if (!result.ok) return setError(result.error);
       toast.success(`Joined ${workspaceName}`);
-      router.replace("/app");
+      router.replace("/app/my-list");
       router.refresh();
     });
   }

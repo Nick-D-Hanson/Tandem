@@ -21,7 +21,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     const target = `/invite/${token}`;
     return <InviteState title={`You’re invited to ${invite.data.workspaceName}`} description="Sign in or create an account to accept this private invite."><Button asChild><Link href={`/sign-in?redirectTo=${encodeURIComponent(target)}`}>Sign in to continue</Link></Button><Button asChild variant="outline"><Link href={`/sign-up?redirectTo=${encodeURIComponent(target)}`}>Create account</Link></Button></InviteState>;
   }
-  if (await getMembershipForUser(user.id)) redirect("/app");
+  if (await getMembershipForUser(user.id)) redirect("/app/my-list");
   return <main className="grid min-h-dvh place-items-center p-4"><div className="flex w-full flex-col items-center gap-7"><Brand /><InviteCard token={token} workspaceName={invite.data.workspaceName} defaultName={user.name} /></div></main>;
 }
 

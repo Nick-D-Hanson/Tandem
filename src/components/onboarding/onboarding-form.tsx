@@ -53,7 +53,7 @@ export function OnboardingForm({ defaultDisplayName }: { defaultDisplayName: str
           <div className="flex gap-2"><Input readOnly value={inviteLink} aria-label="Invite link" /><Button type="button" variant="outline" size="icon" onClick={copyInvite} aria-label="Copy invite link"><Copy /></Button></div>
           <p className="text-xs text-muted-foreground">Only the cryptographic hash is stored. Creating a new link revokes this one.</p>
         </CardContent>
-        <CardFooter><Button className="w-full" onClick={() => router.push("/app")}>Open Tandem</Button></CardFooter>
+        <CardFooter><Button className="w-full" onClick={() => router.push("/app/my-list")}>Open Tandem</Button></CardFooter>
       </Card>
     );
   }

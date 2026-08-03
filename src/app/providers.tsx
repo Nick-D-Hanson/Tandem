@@ -18,7 +18,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         navigate={router.push}
         replace={router.replace}
         onSessionChange={() => router.refresh()}
-        redirectTo="/app"
+        redirectTo="/app/my-list"
         basePath=""
         viewPaths={{
           SIGN_IN: "sign-in",

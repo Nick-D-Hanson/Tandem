@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function OnboardingPage() {
   let user;
   try { user = await requireUser(); } catch { redirect("/sign-in?redirectTo=/onboarding"); }
-  if (await getMembershipForUser(user.id)) redirect("/app");
+  if (await getMembershipForUser(user.id)) redirect("/app/my-list");
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-4 sm:p-8">
       <section className="flex w-full flex-col items-center gap-7">

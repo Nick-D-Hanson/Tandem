@@ -4,8 +4,8 @@ import { absoluteInviteUrl } from "@/lib/invites";
 
 describe("absoluteInviteUrl", () => {
   it("uses the active production origin", () => {
-    expect(absoluteInviteUrl("/invite/token", "https://coupled-indol.vercel.app"))
-      .toBe("https://coupled-indol.vercel.app/invite/token");
+    expect(absoluteInviteUrl("/invite/token", "https://tandem-n-dw2023s-projects.vercel.app"))
+      .toBe("https://tandem-n-dw2023s-projects.vercel.app/invite/token");
   });
 
   it("uses localhost only when the active browser is local", () => {
