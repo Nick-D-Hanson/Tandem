@@ -22,7 +22,7 @@ export function AgendaApp({ appData, agendaData }: { appData: AppData; agendaDat
   const [desktopTaskSidebarOpen, setDesktopTaskSidebarOpen] = useState(true);
   const [mobileTaskSidebarOpen, setMobileTaskSidebarOpen] = useState(false);
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(236);
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(340);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(680);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selection, setSelection] = useState<CalendarSelection | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
