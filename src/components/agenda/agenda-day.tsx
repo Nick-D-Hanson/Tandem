@@ -62,9 +62,9 @@ export function AgendaDay({ day, today, canEdit, draggingItemId, onCreate, onUpd
 
 function AgendaDropSlot({ date, index, active }: { date: string; index: number; active: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: `slot:${date}:${index}`, disabled: !active });
-  return <div ref={setNodeRef} data-agenda-drop-slot={`${date}:${index}`} className={cn("relative flex h-0 items-center justify-center overflow-hidden opacity-0 transition-[height,opacity] duration-150", active && "h-4 overflow-visible opacity-100", isOver && "h-8")}>
-    <span className={cn("h-0.5 w-full rounded-full bg-primary/25 transition-colors", isOver && "bg-primary")} />
-    {isOver && <span className="absolute rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">Drop here</span>}
+  return <div ref={setNodeRef} data-agenda-drop-slot={`${date}:${index}`} className={cn("relative z-10 flex h-0 items-center justify-center overflow-hidden opacity-0", active && "-my-1.5 h-3 overflow-visible opacity-100")}>
+    <span className={cn("h-px w-full rounded-full bg-transparent transition-colors duration-100", isOver && "h-0.5 bg-primary")} />
+    {isOver && <span className="pointer-events-none absolute right-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">Drop here</span>}
   </div>;
 }
 
@@ -84,7 +84,7 @@ function SortableAgendaItem({ item, onUpdate, onDelete }: { item: AgendaItemView
     saving.current = false;
   }
 
-  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={cn("flex min-w-0 items-center gap-1 rounded-lg border bg-background p-1", isDragging && "z-20 opacity-60 shadow-lg")}>
+  return <div ref={setNodeRef} style={{ transform: isDragging ? CSS.Transform.toString(transform) : undefined, transition: isDragging ? transition : undefined }} className={cn("flex min-w-0 items-center gap-1 rounded-lg border bg-background p-1", isDragging && "z-20 opacity-75 shadow-lg")}>
     <button type="button" className="grid size-8 shrink-0 touch-none place-items-center rounded-md text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Move ${item.content}`} {...attributes} {...listeners}><GripVertical className="size-4" /></button>
     <Input value={value} maxLength={300} aria-label={`My List item: ${item.content}`} className="h-8 min-w-0 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0" onChange={(event) => setValue(event.target.value)} onBlur={() => { if (cancelSave.current) { cancelSave.current = false; return; } void save(); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void save(); event.currentTarget.blur(); } if (event.key === "Escape") { cancelSave.current = true; setValue(item.content); event.currentTarget.blur(); } }} />
     <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground hover:text-destructive" aria-label={`Delete ${item.content}`} onClick={() => onDelete(item)}><Trash2 /></Button>
