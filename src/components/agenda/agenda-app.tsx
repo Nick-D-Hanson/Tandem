@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AgendaView } from "@/components/agenda/agenda-view";
+import { ActivitySummary } from "@/components/activity/activity-summary";
 import { AppSidebar } from "@/components/app-shell/app-sidebar";
 import { SidebarResizeHandle } from "@/components/app-shell/sidebar-resize-handle";
 import type { CalendarSelection } from "@/components/calendar/calendar-view";
@@ -13,9 +14,10 @@ import { TaskPanel, type TaskFilter } from "@/components/tasks/task-panel";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { AgendaData, AppData } from "@/lib/types";
+import type { ActivityPage } from "@/lib/activity/types";
 import { cn } from "@/lib/utils";
 
-export function AgendaApp({ appData, agendaData }: { appData: AppData; agendaData: AgendaData }) {
+export function AgendaApp({ appData, agendaData, activityData, initialActivityOpen = false }: { appData: AppData; agendaData: AgendaData; activityData: ActivityPage; initialActivityOpen?: boolean }) {
   const router = useRouter();
   const [filter, setFilter] = useState<TaskFilter>("all");
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
@@ -48,6 +50,7 @@ export function AgendaApp({ appData, agendaData }: { appData: AppData; agendaDat
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}><SheetTrigger asChild><Button variant="ghost" size="icon" className="hidden max-[820px]:inline-flex" aria-label="Open navigation"><Menu /></Button></SheetTrigger><SheetContent side="left" className="w-[300px] p-0"><SheetHeader className="sr-only"><SheetTitle>Navigation</SheetTitle><SheetDescription>Workspace navigation</SheetDescription></SheetHeader>{sidebar}</SheetContent></Sheet>
         <NotebookTabs className="size-5 shrink-0 text-primary" /><div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold tracking-tight">My List</h1><p className="truncate text-xs text-muted-foreground">Private by default · {agendaData.workspaceTimezone}</p></div>
         <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => router.push("/app")}><CalendarDays /><span className="max-[500px]:sr-only">Calendar</span></Button>
+        <ActivitySummary initialData={activityData} initialOpen={initialActivityOpen} />
         <Button type="button" variant={desktopTaskSidebarOpen ? "secondary" : "ghost"} size="sm" className="shrink-0 max-[820px]:hidden" aria-pressed={desktopTaskSidebarOpen} onClick={() => setDesktopTaskSidebarOpen((open) => !open)}><ListChecks />Tasks</Button>
         <Button type="button" variant={mobileTaskSidebarOpen ? "secondary" : "ghost"} size="icon" className="hidden shrink-0 max-[820px]:inline-flex" aria-label="Tasks" aria-pressed={mobileTaskSidebarOpen} onClick={() => setMobileTaskSidebarOpen((open) => !open)}><ListChecks /></Button>
       </header>

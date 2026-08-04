@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Tandem">
+  <defs>
+    <linearGradient id="tandem-gradient" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#tandem-gradient)"/>
+  <path fill="#fff" d="M132 132h248v72h-84v176h-80V204h-84z"/>
+</svg>

@@ -72,6 +72,17 @@ export const listSchema = z.object({
 export const idSchema = z.object({ id: uuid });
 export const inviteTokenSchema = z.object({ token: z.string().min(40).max(200) });
 
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.url().max(4096),
+  expirationTime: z.number().nullable().optional(),
+  keys: z.object({
+    p256dh: z.string().min(16).max(512),
+    auth: z.string().min(8).max(256),
+  }),
+});
+
+export const pushEndpointSchema = z.object({ endpoint: z.url().max(4096) });
+
 export const agendaVisibilitySchema = z.object({ visibility: z.enum(["private", "shared"]) });
 export const agendaItemCreateSchema = z.object({
   date: dateString,

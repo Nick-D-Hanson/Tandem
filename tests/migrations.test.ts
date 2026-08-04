@@ -15,3 +15,49 @@ describe("Agenda migration defaults", () => {
     expect(migration).toContain('CHECK ("agenda_preferences"."visible_days" between 1 and 3)');
   });
 });
+
+describe("Activity ledger migration", () => {
+  const migration = readFileSync(new URL("../db/migrations/0004_useful_inertia.sql", import.meta.url), "utf8");
+
+  it("keeps entity IDs as immutable references without item foreign keys", () => {
+    expect(migration).toContain('"entity_id" uuid NOT NULL');
+    expect(migration).not.toContain("activity_events_entity_id_tasks");
+    expect(migration).not.toContain("activity_events_entity_id_events");
+  });
+
+  it("enforces activity values and deterministic feed indexes", () => {
+    expect(migration).toContain("activity_events_entity_type_check");
+    expect(migration).toContain("activity_events_action_type_check");
+    expect(migration).toContain('"occurred_at" DESC');
+    expect(migration).toContain("activity_read_states_workspace_user_unique");
+  });
+});
+
+describe("Push subscription migration", () => {
+  const migration = readFileSync(new URL("../db/migrations/0005_bored_matthew_murdock.sql", import.meta.url), "utf8");
+
+  it("keeps a browser endpoint globally unique and tied to its workspace", () => {
+    expect(migration).toContain('CREATE UNIQUE INDEX "push_subscriptions_endpoint_unique"');
+    expect(migration).toContain('FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade');
+  });
+
+  it("supports scoped enabled-subscription lookups and failure bookkeeping", () => {
+    expect(migration).toContain('"workspace_id","user_id","enabled"');
+    expect(migration).toContain('CHECK ("push_subscriptions"."failure_count" >= 0)');
+  });
+});
+
+describe("Daily digest migration", () => {
+  const migration = readFileSync(new URL("../db/migrations/0006_green_vulcan.sql", import.meta.url), "utf8");
+
+  it("enforces one digest per recipient and Central date", () => {
+    expect(migration).toContain('CREATE UNIQUE INDEX "activity_digests_workspace_recipient_date_unique"');
+    expect(migration).toContain('("workspace_id","recipient_user_id","digest_date")');
+  });
+
+  it("enforces one durable delivery per digest and device", () => {
+    expect(migration).toContain('CREATE UNIQUE INDEX "activity_digest_deliveries_digest_subscription_unique"');
+    expect(migration).toContain('("digest_id","push_subscription_id")');
+    expect(migration).toContain("'pending', 'processing', 'sent', 'expired', 'failed'");
+  });
+});

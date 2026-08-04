@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AppSidebar } from "@/components/app-shell/app-sidebar";
+import { ActivitySummary } from "@/components/activity/activity-summary";
 import { SidebarResizeHandle } from "@/components/app-shell/sidebar-resize-handle";
 import { CalendarView, calendarPeriodLabel, shiftCalendarPeriod, type CalendarMode, type CalendarSelection } from "@/components/calendar/calendar-view";
 import { ItemEditor } from "@/components/item-editor/item-editor";
@@ -13,10 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dateKey, localDate, zonedNow } from "@/lib/dates/timezone";
+import type { ActivityPage } from "@/lib/activity/types";
 import type { AppData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function TandemApp({ data, initialView = "month", initialDate }: { data: AppData; initialView?: CalendarMode; initialDate?: string }) {
+export function TandemApp({ data, activityData, initialView = "month", initialDate, initialActivityOpen = false }: { data: AppData; activityData: ActivityPage; initialView?: CalendarMode; initialDate?: string; initialActivityOpen?: boolean }) {
   const router = useRouter();
   const [mode, setMode] = useState<CalendarMode>(initialView);
   const [anchor, setAnchor] = useState(() => initialDate ? localDate(initialDate) : new Date());
@@ -76,6 +78,7 @@ export function TandemApp({ data, initialView = "month", initialDate }: { data: 
           <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight max-[820px]:text-base">{calendarPeriodLabel(mode, anchor)}</h1>
           <Select value={["today", "week", "month", "quarter"].includes(mode) ? mode : ""} onValueChange={(value) => { if (value === "today") goToToday(); else updateCalendar(value as CalendarMode); }}><SelectTrigger size="sm" className="w-[112px] shrink-0" aria-label="Calendar view"><SelectValue placeholder="Calendar" /></SelectTrigger><SelectContent align="end"><SelectItem value="today">Today</SelectItem><SelectItem value="week">Week</SelectItem><SelectItem value="month">Month</SelectItem><SelectItem value="quarter">3 Month</SelectItem></SelectContent></Select>
           <div className="flex shrink-0 items-center gap-1 max-[820px]:hidden"><Button size="sm" variant={mode === "events" ? "secondary" : "ghost"} onClick={() => updateCalendar("events", zonedNow(data.workspace.timezone))}>Events</Button><Button size="sm" variant="ghost" onClick={() => router.push("/app/my-list")}>My List</Button></div>
+          <ActivitySummary initialData={activityData} initialOpen={initialActivityOpen} />
           <Button variant="outline" className="shrink-0 max-[1100px]:hidden" onClick={() => openEditor({ type: "event", date: dateKey(anchor) })}><Plus />Add</Button>
         </header>
         <div className="flex min-h-0 flex-1"><CalendarView mode={mode} anchor={anchor} timezone={data.workspace.timezone} tasks={data.tasks} events={data.events} lists={data.lists} onSelect={openEditor} /></div>

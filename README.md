@@ -11,6 +11,7 @@ Tandem is a production-minded shared calendar and task workspace for couples, fa
 - Dated tasks appear in both the calendar and task agenda; undated tasks stay in Inbox or a list.
 - Responsive three-column desktop layout, tablet task overlay, and mobile calendar/task surfaces.
 - Light/dark themes, keyboard quick add (`N` or `C`), accessible dialogs, confirmations, and toasts.
+- An in-app Activity Summary for relevant Task/Event changes, with private per-member read state and an optional daily Web Push digest.
 
 ## Local setup
 
@@ -22,6 +23,7 @@ Prerequisites: Node.js 20+ and pnpm 11.
    - `NEON_AUTH_BASE_URL`: the Neon Auth URL returned by Neon provisioning, including `/auth`.
    - `NEON_AUTH_COOKIE_SECRET`: stable random value of at least 32 characters.
    - `NEXT_PUBLIC_APP_URL`: `http://localhost:3000` locally and the canonical URL in production.
+   - Push is optional. To enable it, also set `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and `CRON_SECRET` as described below.
 3. Install and initialize:
 
 ```bash
@@ -65,9 +67,38 @@ The Playwright happy path requires `E2E_EMAIL` and `E2E_PASSWORD` for a Neon Aut
 - UTC instants are stored in Postgres. `src/lib/dates/timezone.ts` centralizes conversion to and from the workspace IANA timezone, including all-day dates.
 - View state stays client-side and durable calendar state is reflected in `view` and `date` URL parameters.
 
+## Activity Summary
+
+The bell in the Calendar and My List headers opens `Activity Summary`. It loads the newest 50 entries separately from normal app data, supports cursor-based pagination, and groups entries by workspace-local day. A member sees both their own and other members' changes, but only other-member activity increases that member's private unread count. Opening the panel advances a timestamp-and-ID watermark only to the newest accessible event.
+
+Tracked Task actions are create, complete, reopen, remove, and changes to due date, category, priority, or assignee. Tracked Event actions are create, remove, and changes to date/range or category. A save with multiple tracked changes produces one combined entry. Title-, notes-, description-, location-, color-, and recurrence-only edits are not tracked; My List items, categories, workspace settings, and invitations are also outside this activity ledger. Stored title, actor, date, category, assignee, and priority snapshots keep deleted-item history readable.
+
+## Optional daily Web Push
+
+Activity Summary contains the device-level `Enable daily summary` control. Permission is requested only from that button. Unsupported browsers get a non-blocking explanation; on iPhone/iPad, Tandem must first be added to the Home Screen and opened in standalone mode. Disabling affects only the current browser subscription. There are no immediate or per-event pushes.
+
+When configured, production Vercel Cron invokes `/api/cron/activity-digest` at both `0 0 * * *` and `0 1 * * *` UTC. The authenticated route proceeds only when the current `America/Chicago` hour is 19, so one trigger covers CDT and the other covers CST. Its daily window is the previous Central date at 7:00 PM through the current Central date at 7:00 PM; timezone conversion handles 23-hour and 25-hour DST windows. No notification is sent when there is no other-member activity.
+
+Digest and per-subscription delivery rows enforce one recipient digest per Central date and one delivery per device. Successful pairs are never claimed again, failed deliveries can be retried by explicitly rerunning the route, and 404/410 endpoints are disabled. The lock-screen body contains aggregate counts and actor names, never Task/Event titles or detailed changes. Notification clicks focus an existing Tandem window when possible and open Activity Summary.
+
+Generate VAPID keys locally without committing their values:
+
+```bash
+pnpm exec web-push generate-vapid-keys
+```
+
+Configure:
+
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`: generated public key; intentionally available to the browser.
+- `VAPID_PRIVATE_KEY`: matching server-only private key.
+- `VAPID_SUBJECT`: a contact URI such as `mailto:admin@example.com`.
+- `CRON_SECRET`: a high-entropy value Vercel sends as `Authorization: Bearer …`.
+
+For manual testing, use HTTPS (or localhost where supported), open Activity Summary, click the enable control, confirm a `push_subscriptions` row is stored, then disable the device and confirm it is inactive. Push delivery itself should be tested with an approved HTTPS deployment and a supported device; iOS testing specifically requires a Home Screen installation. Activity Summary remains fully functional when any Push variable is absent.
+
 ## Vercel deployment
 
-Import the repository into Vercel, set all four runtime environment variables from `.env.example`, and ensure `NEXT_PUBLIC_APP_URL` matches the production domain. Add that domain to the Neon Auth allowed origins, run `pnpm db:migrate` against the intended production branch, and deploy with the standard Next.js preset.
+Import the repository into Vercel, set the required database/auth/application environment variables from `.env.example`, and ensure `NEXT_PUBLIC_APP_URL` matches the production domain. Add that domain to the Neon Auth allowed origins. Set the four optional Push variables above to enable the daily digest, run `pnpm db:migrate` against the intended production branch, and deploy with the standard Next.js preset. The two production cron schedules are declared in `vercel.json`; preview deployments do not run Vercel Cron.
 
 ## Intentional production hardening follow-ups
 
@@ -75,3 +106,5 @@ Import the repository into Vercel, set all four runtime environment variables fr
 - Add structured error monitoring and audit logging without secrets or raw invite tokens.
 - Run Playwright against an isolated Neon preview branch in CI with dedicated auth identities.
 - Add database-level RLS if the product later exposes the Neon Data API directly; the MVP keeps all database access server-side.
+
+Current Activity/Push limitations are intentional: no real-time notifications, configurable delivery time, granular notification filters, email/SMS, broad offline caching, Activity search/comments/exports, or notification settings in Workspace Settings. A process interruption after a push provider accepts a message but before its durable `sent` update can conservatively leave that delivery in `processing`; it will not be automatically retried to avoid a duplicate lock-screen notification.

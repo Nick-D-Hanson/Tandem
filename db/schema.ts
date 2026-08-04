@@ -5,6 +5,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -179,6 +180,125 @@ export const agendaItems = pgTable(
   ],
 );
 
+export const activityEvents = pgTable(
+  "activity_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    actorUserId: text("actor_user_id").notNull(),
+    actorDisplayName: text("actor_display_name").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    entityTitle: text("entity_title").notNull(),
+    actionType: text("action_type").notNull(),
+    details: jsonb("details").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("activity_events_entity_type_check", sql`${table.entityType} in ('task', 'event')`),
+    check("activity_events_action_type_check", sql`${table.actionType} in ('created', 'completed', 'reopened', 'deleted', 'updated')`),
+    index("activity_events_workspace_occurred_idx").on(table.workspaceId, table.occurredAt.desc(), table.id.desc()),
+    index("activity_events_workspace_actor_occurred_idx").on(table.workspaceId, table.actorUserId, table.occurredAt.desc()),
+  ],
+);
+
+export const activityReadStates = pgTable(
+  "activity_read_states",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    lastSeenEventId: uuid("last_seen_event_id"),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("activity_read_states_workspace_user_unique").on(table.workspaceId, table.userId),
+    index("activity_read_states_workspace_user_idx").on(table.workspaceId, table.userId),
+  ],
+);
+
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    endpoint: text("endpoint").notNull(),
+    p256dhKey: text("p256dh_key").notNull(),
+    authKey: text("auth_key").notNull(),
+    userAgent: text("user_agent"),
+    enabled: boolean("enabled").notNull().default(true),
+    lastSuccessfulDeliveryAt: timestamp("last_successful_delivery_at", { withTimezone: true }),
+    lastFailureAt: timestamp("last_failure_at", { withTimezone: true }),
+    failureCount: integer("failure_count").notNull().default(0),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("push_subscriptions_endpoint_unique").on(table.endpoint),
+    index("push_subscriptions_workspace_user_enabled_idx").on(table.workspaceId, table.userId, table.enabled),
+    check("push_subscriptions_failure_count_check", sql`${table.failureCount} >= 0`),
+  ],
+);
+
+export const activityDigests = pgTable(
+  "activity_digests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    recipientUserId: text("recipient_user_id").notNull(),
+    digestDate: date("digest_date", { mode: "string" }).notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    windowEnd: timestamp("window_end", { withTimezone: true }).notNull(),
+    relevantActivityCount: integer("relevant_activity_count").notNull().default(0),
+    assignedToRecipientCount: integer("assigned_to_recipient_count").notNull().default(0),
+    status: text("status").notNull().default("processing"),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("activity_digests_workspace_recipient_date_unique").on(table.workspaceId, table.recipientUserId, table.digestDate),
+    index("activity_digests_date_status_idx").on(table.digestDate, table.status),
+    check("activity_digests_status_check", sql`${table.status} in ('processing', 'no_activity', 'sent', 'partial', 'failed')`),
+    check("activity_digests_activity_count_check", sql`${table.relevantActivityCount} >= 0`),
+    check("activity_digests_assigned_count_check", sql`${table.assignedToRecipientCount} >= 0`),
+    check("activity_digests_window_check", sql`${table.windowEnd} > ${table.windowStart}`),
+  ],
+);
+
+export const activityDigestDeliveries = pgTable(
+  "activity_digest_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    digestId: uuid("digest_id")
+      .notNull()
+      .references(() => activityDigests.id, { onDelete: "cascade" }),
+    pushSubscriptionId: uuid("push_subscription_id")
+      .notNull()
+      .references(() => pushSubscriptions.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("activity_digest_deliveries_digest_subscription_unique").on(table.digestId, table.pushSubscriptionId),
+    index("activity_digest_deliveries_digest_status_idx").on(table.digestId, table.status),
+    check("activity_digest_deliveries_status_check", sql`${table.status} in ('pending', 'processing', 'sent', 'expired', 'failed')`),
+    check("activity_digest_deliveries_attempt_count_check", sql`${table.attemptCount} >= 0`),
+  ],
+);
+
 export type WorkspaceRow = typeof workspaces.$inferSelect;
 export type WorkspaceMemberRow = typeof workspaceMembers.$inferSelect;
 export type TaskListRow = typeof taskLists.$inferSelect;
@@ -186,3 +306,8 @@ export type TaskRow = typeof tasks.$inferSelect;
 export type EventRow = typeof events.$inferSelect;
 export type AgendaPreferenceRow = typeof agendaPreferences.$inferSelect;
 export type AgendaItemRow = typeof agendaItems.$inferSelect;
+export type ActivityEventRow = typeof activityEvents.$inferSelect;
+export type ActivityReadStateRow = typeof activityReadStates.$inferSelect;
+export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
+export type ActivityDigestRow = typeof activityDigests.$inferSelect;
+export type ActivityDigestDeliveryRow = typeof activityDigestDeliveries.$inferSelect;

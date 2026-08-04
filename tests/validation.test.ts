@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { agendaItemCreateSchema, agendaReorderSchema, agendaVisibilitySchema, eventSchema, listSchema, taskSchema, workspaceSchema } from "@/lib/validation/schemas";
+import { agendaItemCreateSchema, agendaReorderSchema, agendaVisibilitySchema, eventSchema, listSchema, pushEndpointSchema, pushSubscriptionSchema, taskSchema, workspaceSchema } from "@/lib/validation/schemas";
 
 describe("mutation validation", () => {
   it("rejects an event whose end is before its start", () => {
@@ -64,5 +64,23 @@ describe("mutation validation", () => {
     const id = "2f8fcb8a-4adb-4c66-8e91-a91cf7ff5d63";
     expect(agendaReorderSchema.safeParse({ days: [{ date: "2026-08-02", itemIds: [id] }, { date: "2026-08-03", itemIds: [id] }] }).success).toBe(false);
     expect(agendaReorderSchema.safeParse({ days: [{ date: "2026-08-02", itemIds: [] }, { date: "2026-08-02", itemIds: [] }] }).success).toBe(false);
+  });
+});
+
+describe("push subscription validation", () => {
+  const validSubscription = {
+    endpoint: "https://push.example.test/subscriptions/device-token",
+    expirationTime: null,
+    keys: { p256dh: "p".repeat(32), auth: "a".repeat(16) },
+  };
+
+  it("accepts the browser PushSubscription JSON shape", () => {
+    expect(pushSubscriptionSchema.safeParse(validSubscription).success).toBe(true);
+    expect(pushEndpointSchema.safeParse({ endpoint: validSubscription.endpoint }).success).toBe(true);
+  });
+
+  it("rejects malformed endpoints and incomplete key material", () => {
+    expect(pushSubscriptionSchema.safeParse({ ...validSubscription, endpoint: "not a URL" }).success).toBe(false);
+    expect(pushSubscriptionSchema.safeParse({ ...validSubscription, keys: { p256dh: "short", auth: "short" } }).success).toBe(false);
   });
 });

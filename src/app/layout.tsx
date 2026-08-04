@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Providers } from "@/app/providers";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { APP_NAME } from "@/lib/constants";
 
 import "./globals.css";
@@ -22,7 +23,7 @@ export default function RootLayout({
       className="h-full antialiased"
     >
       <body className="min-h-full bg-background font-sans text-foreground">
-        <Providers>{children}</Providers>
+        <Providers>{children}<ServiceWorkerRegistration /></Providers>
       </body>
     </html>
   );

@@ -29,6 +29,27 @@
       "when": 1785712431525,
       "tag": "0003_abnormal_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785865189701,
+      "tag": "0004_useful_inertia",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785865942117,
+      "tag": "0005_bored_matthew_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785866176481,
+      "tag": "0006_green_vulcan",
+      "breakpoints": true
     }
   ]
 }
