@@ -1,14 +1,13 @@
 "use server";
 
 import { and, asc, desc, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 
 import { agendaItems, agendaPreferences, workspaces } from "../../../db/schema";
 import { requireWorkspace } from "@/lib/authorization";
 import { db, neonSql } from "@/lib/db/client";
 import { agendaDateWindow } from "@/lib/dates/timezone";
 import type { ActionResult } from "@/lib/types";
-import { agendaDaySchema, agendaItemCreateSchema, agendaItemUpdateSchema, agendaReorderSchema, agendaVisibilitySchema, agendaVisibleDaysSchema } from "@/lib/validation/schemas";
+import { agendaDaySchema, agendaItemCreateSchema, agendaItemUpdateSchema, agendaReorderSchema, agendaVisibilitySchema } from "@/lib/validation/schemas";
 import { actionFailure, validationFailure } from "./helpers";
 
 async function agendaContext() {
@@ -22,24 +21,6 @@ function assertEditableDate(date: string, window: ReturnType<typeof agendaDateWi
   if (!window.editable.includes(date)) throw new Error("NOT_FOUND");
 }
 
-function refreshAgenda() {
-  revalidatePath("/app/my-list");
-}
-
-export async function updateAgendaVisibleDays(input: unknown): Promise<ActionResult> {
-  const parsed = agendaVisibleDaysSchema.safeParse(input);
-  if (!parsed.success) return validationFailure(parsed.error);
-  try {
-    const context = await agendaContext();
-    await db.insert(agendaPreferences).values({ workspaceId: context.workspaceId, userId: context.userId, visibleDays: parsed.data.visibleDays }).onConflictDoUpdate({
-      target: [agendaPreferences.workspaceId, agendaPreferences.userId],
-      set: { visibleDays: parsed.data.visibleDays, updatedAt: new Date() },
-    });
-    refreshAgenda();
-    return { ok: true, data: undefined };
-  } catch (error) { return actionFailure(error); }
-}
-
 export async function updateAgendaVisibility(input: unknown): Promise<ActionResult> {
   const parsed = agendaVisibilitySchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
@@ -50,7 +31,6 @@ export async function updateAgendaVisibility(input: unknown): Promise<ActionResu
       target: [agendaPreferences.workspaceId, agendaPreferences.userId],
       set: { isShared, updatedAt: new Date() },
     });
-    refreshAgenda();
     return { ok: true, data: undefined };
   } catch (error) { return actionFailure(error); }
 }
@@ -73,7 +53,6 @@ export async function createAgendaItem(input: unknown): Promise<ActionResult<{ i
       content: parsed.data.content,
       position: (lastItem?.position ?? -1) + 1,
     }).returning({ id: agendaItems.id });
-    refreshAgenda();
     return { ok: true, data: saved };
   } catch (error) { return actionFailure(error); }
 }
@@ -96,7 +75,6 @@ export async function updateAgendaItem(input: unknown): Promise<ActionResult> {
       eq(agendaItems.ownerUserId, context.userId),
     )).returning({ id: agendaItems.id });
     if (!saved) throw new Error("NOT_FOUND");
-    refreshAgenda();
     return { ok: true, data: undefined };
   } catch (error) { return actionFailure(error); }
 }
@@ -119,7 +97,6 @@ export async function deleteAgendaItem(id: string): Promise<ActionResult> {
       eq(agendaItems.ownerUserId, context.userId),
     )).returning({ id: agendaItems.id });
     if (!deleted) throw new Error("NOT_FOUND");
-    refreshAgenda();
     return { ok: true, data: undefined };
   } catch (error) { return actionFailure(error); }
 }
@@ -141,7 +118,6 @@ export async function clearAgendaDay(input: unknown): Promise<ActionResult> {
       eq(agendaItems.ownerUserId, context.userId),
       eq(agendaItems.agendaDate, parsed.data.date),
     ));
-    refreshAgenda();
     return { ok: true, data: undefined };
   } catch (error) { return actionFailure(error); }
 }
@@ -207,7 +183,6 @@ export async function reorderAgendaItems(input: unknown): Promise<ActionResult> 
     `;
     const validation = result[0] as { valid?: boolean } | undefined;
     if (!validation?.valid) throw new Error("NOT_FOUND");
-    refreshAgenda();
     return { ok: true, data: undefined };
   } catch (error) { return actionFailure(error); }
 }

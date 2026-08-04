@@ -82,7 +82,6 @@ export type AgendaOwnerView = {
   ownerUserId: string;
   displayName: string;
   canEdit: boolean;
-  visibleDays: 1 | 2 | 3;
   isShared: boolean;
   days: AgendaDayView[];
 };

@@ -23,18 +23,27 @@ export function moveAgendaItem<T extends AgendaOrderItem, D extends AgendaOrderD
     const from = items.findIndex((candidate) => candidate.id === itemId);
     const over = items.findIndex((candidate) => candidate.id === overId);
     const [moved] = items.splice(from, 1);
-    items.splice(over < 0 ? items.length : over, 0, moved);
+    const slot = dropSlotIndex(overId, targetDate);
+    const targetIndex = slot === null ? (over < 0 ? items.length : over) : Math.min(items.length, Math.max(0, slot - (from < slot ? 1 : 0)));
+    items.splice(targetIndex, 0, moved);
     return days.map((day) => day.date === sourceDate ? { ...day, items: normalizeItems(items, sourceDate) } as D : day);
   }
 
   const targetItems = [...target.items];
+  const slot = dropSlotIndex(overId, targetDate);
   const targetIndex = targetItems.findIndex((candidate) => candidate.id === overId);
-  targetItems.splice(targetIndex < 0 ? targetItems.length : targetIndex, 0, { ...item, date: targetDate });
+  const insertionIndex = slot === null ? (targetIndex < 0 ? targetItems.length : targetIndex) : Math.min(targetItems.length, Math.max(0, slot));
+  targetItems.splice(insertionIndex, 0, { ...item, date: targetDate });
   return days.map((day) => {
     if (day.date === sourceDate) return { ...day, items: normalizeItems(day.items.filter((candidate) => candidate.id !== itemId), sourceDate) } as D;
     if (day.date === targetDate) return { ...day, items: normalizeItems(targetItems, targetDate) } as D;
     return day;
   });
+}
+
+function dropSlotIndex(overId: string, targetDate: string) {
+  const match = /^slot:(\d{4}-\d{2}-\d{2}):(\d+)$/.exec(overId);
+  return match?.[1] === targetDate ? Number(match[2]) : null;
 }
 
 function normalizeItems<T extends AgendaOrderItem>(items: T[], date: string) {

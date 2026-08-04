@@ -72,7 +72,6 @@ export const listSchema = z.object({
 export const idSchema = z.object({ id: uuid });
 export const inviteTokenSchema = z.object({ token: z.string().min(40).max(200) });
 
-export const agendaVisibleDaysSchema = z.object({ visibleDays: z.union([z.literal(1), z.literal(2), z.literal(3)]) });
 export const agendaVisibilitySchema = z.object({ visibility: z.enum(["private", "shared"]) });
 export const agendaItemCreateSchema = z.object({
   date: dateString,

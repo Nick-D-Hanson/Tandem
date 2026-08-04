@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { cache } from "react";
 
 import { workspaceMembers } from "../../../db/schema";
-import { auth } from "@/lib/auth/server";
+import { getServerSessionData } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 
 export { assertSameWorkspace, assertTwoMemberLimit } from "./guards";
@@ -15,7 +15,7 @@ export type AuthenticatedUser = {
 };
 
 export const requireUser = cache(async (): Promise<AuthenticatedUser> => {
-  const { data: session } = await auth.getSession();
+  const session = await getServerSessionData();
   if (!session?.user?.id) throw new Error("AUTH_REQUIRED");
   return {
     id: session.user.id,

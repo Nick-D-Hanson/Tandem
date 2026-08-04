@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { agendaItemCreateSchema, agendaReorderSchema, agendaVisibilitySchema, agendaVisibleDaysSchema, eventSchema, listSchema, taskSchema, workspaceSchema } from "@/lib/validation/schemas";
+import { agendaItemCreateSchema, agendaReorderSchema, agendaVisibilitySchema, eventSchema, listSchema, taskSchema, workspaceSchema } from "@/lib/validation/schemas";
 
 describe("mutation validation", () => {
   it("rejects an event whose end is before its start", () => {
@@ -49,8 +49,6 @@ describe("mutation validation", () => {
   });
 
   it("accepts the supported Agenda preferences", () => {
-    expect(agendaVisibleDaysSchema.safeParse({ visibleDays: 3 }).success).toBe(true);
-    expect(agendaVisibleDaysSchema.safeParse({ visibleDays: 4 }).success).toBe(false);
     expect(agendaVisibilitySchema.safeParse({ visibility: "private" }).success).toBe(true);
     expect(agendaVisibilitySchema.safeParse({ visibility: "workspace" }).success).toBe(false);
   });

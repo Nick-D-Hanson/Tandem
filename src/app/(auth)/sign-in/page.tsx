@@ -2,12 +2,12 @@ import { AuthView } from "@neondatabase/auth-ui";
 import { redirect } from "next/navigation";
 
 import { AuthShell } from "@/components/auth/auth-shell";
-import { auth } from "@/lib/auth/server";
+import { getServerSessionData } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ redirectTo?: string }> }) {
-  const [{ data: session }, query] = await Promise.all([auth.getSession(), searchParams]);
+  const [session, query] = await Promise.all([getServerSessionData(), searchParams]);
   if (session?.user) redirect(query.redirectTo?.startsWith("/") ? query.redirectTo : "/app/my-list");
   const redirectTo = query.redirectTo?.startsWith("/") ? query.redirectTo : "/app/my-list";
   return <AuthShell eyebrow="One shared place for couples, families, and everyone you plan with."><AuthView path="sign-in" redirectTo={redirectTo} /></AuthShell>;

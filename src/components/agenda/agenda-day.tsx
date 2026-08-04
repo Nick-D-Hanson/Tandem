@@ -5,7 +5,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { format } from "date-fns";
 import { GripVertical, Plus, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +13,11 @@ import { localDate } from "@/lib/dates/timezone";
 import type { AgendaDayView, AgendaItemView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function AgendaDay({ day, today, canEdit, onCreate, onUpdate, onDelete, onClear }: {
+export function AgendaDay({ day, today, canEdit, draggingItemId, onCreate, onUpdate, onDelete, onClear }: {
   day: AgendaDayView;
   today: string;
   canEdit: boolean;
+  draggingItemId: string | null;
   onCreate: (date: string, content: string) => Promise<boolean>;
   onUpdate: (item: AgendaItemView, content: string) => Promise<void>;
   onDelete: (item: AgendaItemView) => void;
@@ -46,8 +47,9 @@ export function AgendaDay({ day, today, canEdit, onCreate, onUpdate, onDelete, o
       </header>
       <div className="grid gap-1.5 p-2.5">
         <SortableContext items={day.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-          {day.items.map((item) => canEdit
-            ? <SortableAgendaItem key={`${item.id}:${item.content}`} item={item} onUpdate={onUpdate} onDelete={onDelete} />
+          {canEdit && <AgendaDropSlot date={day.date} index={0} active={Boolean(draggingItemId)} />}
+          {day.items.map((item, index) => canEdit
+            ? <Fragment key={`${item.id}:${item.content}`}><SortableAgendaItem item={item} onUpdate={onUpdate} onDelete={onDelete} /><AgendaDropSlot date={day.date} index={index + 1} active={Boolean(draggingItemId)} /></Fragment>
             : <div key={item.id} className="min-h-10 rounded-lg border bg-background px-3 py-2 text-sm leading-5">{item.content}</div>)}
         </SortableContext>
         {Array.from({ length: slotCount }, (_, index) => <AgendaDraftRow key={`${day.date}-draft-${index}`} date={day.date} onCreate={onCreate} />)}
@@ -56,6 +58,14 @@ export function AgendaDay({ day, today, canEdit, onCreate, onUpdate, onDelete, o
       {canEdit && !day.isYesterday && <div className="border-t p-2.5"><Button type="button" variant="ghost" size="sm" className="w-full justify-start" onClick={addSlot}><Plus />Add item</Button></div>}
     </section>
   );
+}
+
+function AgendaDropSlot({ date, index, active }: { date: string; index: number; active: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `slot:${date}:${index}`, disabled: !active });
+  return <div ref={setNodeRef} data-agenda-drop-slot={`${date}:${index}`} className={cn("relative flex h-0 items-center justify-center overflow-hidden opacity-0 transition-[height,opacity] duration-150", active && "h-4 overflow-visible opacity-100", isOver && "h-8")}>
+    <span className={cn("h-0.5 w-full rounded-full bg-primary/25 transition-colors", isOver && "bg-primary")} />
+    {isOver && <span className="absolute rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">Drop here</span>}
+  </div>;
 }
 
 function SortableAgendaItem({ item, onUpdate, onDelete }: { item: AgendaItemView; onUpdate: (item: AgendaItemView, content: string) => Promise<void>; onDelete: (item: AgendaItemView) => void }) {

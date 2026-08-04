@@ -23,27 +23,24 @@ export async function getAgendaData(): Promise<AgendaData> {
   const visibleMembers = memberRows.filter((member) => canReadAgenda({ viewerUserId: user.id, ownerUserId: member.userId, sameWorkspace: true, isShared: preferences.get(member.userId)?.isShared ?? false }));
   const window = agendaDateWindow(workspace.timezone);
   const itemRows = (await Promise.all(visibleMembers.map((member) => {
-    const visibleDays = preferences.get(member.userId)?.visibleDays ?? 3;
     return db.select().from(agendaItems).where(and(
       eq(agendaItems.workspaceId, workspaceId),
       eq(agendaItems.ownerUserId, member.userId),
       gte(agendaItems.agendaDate, window.yesterday),
-      lte(agendaItems.agendaDate, window.future[visibleDays - 1]),
+      lte(agendaItems.agendaDate, window.future[2]),
     )).orderBy(asc(agendaItems.agendaDate), asc(agendaItems.position), asc(agendaItems.createdAt));
   }))).flat();
 
   const agendas = visibleMembers.map((member): AgendaOwnerView => {
     const preference = preferences.get(member.userId);
-    const visibleDays = (preference?.visibleDays ?? 3) as 1 | 2 | 3;
     const ownerItems = itemRows.filter((item) => item.ownerUserId === member.userId);
     const serializedItems = ownerItems.map(serializeAgendaItem);
     return {
       ownerUserId: member.userId,
       displayName: member.displayName,
       canEdit: member.userId === user.id,
-      visibleDays,
       isShared: preference?.isShared ?? false,
-      days: buildAgendaDays({ yesterday: window.yesterday, future: window.future, visibleDays, items: serializedItems }),
+      days: buildAgendaDays({ yesterday: window.yesterday, future: window.future, items: serializedItems }),
     };
   });
 

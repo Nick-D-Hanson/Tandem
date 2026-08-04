@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth/server";
+import { getServerSessionData } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const { data: session } = await auth.getSession();
+  const session = await getServerSessionData();
   redirect(session?.user ? "/app/my-list" : "/sign-in");
 }
