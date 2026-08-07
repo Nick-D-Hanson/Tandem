@@ -1,7 +1,7 @@
 "use client";
 
 import { addDays, format } from "date-fns";
-import { CalendarDays, ListChecks, Loader2, Trash2 } from "lucide-react";
+import { CalendarDays, ListChecks, Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteEventAction, deleteTaskAction, saveEventAction, saveTaskAction } from "@/lib/actions/items";
 import { dateKey, localDate, utcToLocalParts } from "@/lib/dates/timezone";
-import type { RecurrenceFrequency, RecurrenceRule } from "@/lib/recurrence";
+import { normalizeRecurrenceInterval, recurrenceIntervalDigits, type RecurrenceFrequency, type RecurrenceRule } from "@/lib/recurrence";
 import type { CalendarSelection } from "@/components/calendar/calendar-view";
 import type { EventView, ListView, MemberView, TaskView } from "@/lib/types";
 
@@ -55,6 +55,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
   const initialEvent = selection.type === "event" && selection.id ? events.find((item) => item.id === selection.id) : undefined;
   const [title, setTitle] = useState(initialTask?.title ?? initialEvent?.title ?? "");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const task = useMemo(() => selection.type === "task" && selection.id ? tasks.find((item) => item.id === selection.id) : undefined, [selection, tasks]);
   const event = useMemo(() => selection.type === "event" && selection.id ? events.find((item) => item.id === selection.id) : undefined, [selection, events]);
   const isEditing = Boolean(task || event);
@@ -69,6 +70,7 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
 
   function submit(formData: FormData) {
     setError("");
+    setFieldErrors({});
     startTransition(async () => {
       const result = type === "event"
         ? await saveEventAction({
@@ -93,7 +95,12 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
             listId: String(formData.get("listId") || ""),
             priority: String(formData.get("priority") || "none"),
           });
-      if (!result.ok) return setError(result.error);
+      if (!result.ok) {
+        const nextFieldErrors = result.fieldErrors ?? {};
+        setFieldErrors(nextFieldErrors);
+        setError(Object.values(nextFieldErrors).flat()[0] ?? result.error);
+        return;
+      }
       toast.success(`${type === "event" ? "Event" : "Task"} saved`, { description: title });
       if (type === "task" && !task) onTaskCreated?.();
       onOpenChange(false);
@@ -123,10 +130,10 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
               <TabsTrigger value="task" disabled={isEditing && type === "event"} className="h-full rounded-lg border bg-background text-sm font-semibold data-[state=active]:border-task data-[state=active]:bg-task data-[state=active]:text-white data-[state=active]:shadow-md dark:data-[state=active]:text-slate-950"><ListChecks className="size-4" />Task</TabsTrigger>
             </TabsList>
           </Tabs>
-          <form action={submit} className="space-y-4">
-            <div className="space-y-2"><Label htmlFor="item-title">Title</Label><Input id="item-title" name="title" autoFocus required maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={type === "event" ? "What’s happening?" : "What needs to be done?"} /></div>
+          <form onSubmit={(event) => { event.preventDefault(); submit(new FormData(event.currentTarget)); }} className="space-y-4">
+            <div className="space-y-2"><Label htmlFor="item-title">Title</Label><Input id="item-title" name="title" autoFocus required maxLength={120} aria-invalid={Boolean(fieldErrors.title)} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={type === "event" ? "What’s happening?" : "What needs to be done?"} /></div>
             {type === "event" ? (
-              <EventFields event={event} eventParts={eventParts} eventEndParts={eventEndParts} eventEndDate={eventEndDate} fallbackDate={fallbackDate} lists={lists} />
+              <EventFields event={event} eventParts={eventParts} eventEndParts={eventEndParts} eventEndDate={eventEndDate} fallbackDate={fallbackDate} lists={lists} fieldErrors={fieldErrors} />
             ) : (
               <TaskFields task={task} taskParts={taskParts} fallbackDate={selection?.date} lists={lists} members={members} />
             )}
@@ -144,13 +151,14 @@ function ItemEditorContent({ open, selection, timezone, tasks, events, lists, me
   );
 }
 
-function EventFields({ event, eventParts, eventEndParts, eventEndDate, fallbackDate, lists }: {
+function EventFields({ event, eventParts, eventEndParts, eventEndDate, fallbackDate, lists, fieldErrors }: {
   event?: EventView;
   eventParts: { date: string; time: string } | null;
   eventEndParts: { date: string; time: string } | null;
   eventEndDate: string | null;
   fallbackDate: string;
   lists: ListView[];
+  fieldErrors: Record<string, string[]>;
 }) {
   const [startDate, setStartDate] = useState(eventParts?.date ?? fallbackDate);
   const [endDate, setEndDate] = useState(eventEndDate ?? fallbackDate);
@@ -161,14 +169,14 @@ function EventFields({ event, eventParts, eventEndParts, eventEndDate, fallbackD
   }
 
   return <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-    <div className="space-y-2"><Label htmlFor="event-date">Start date</Label><Input id="event-date" name="date" type="date" required value={startDate} onChange={(event) => changeStartDate(event.target.value)} /></div>
-    <div className="space-y-2"><Label htmlFor="event-end-date">End date</Label><Input id="event-end-date" name="endDate" type="date" required min={startDate} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div>
-    <div className="space-y-2"><Label htmlFor="event-start-time">Start time <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="event-start-time" name="startTime" type="time" defaultValue={event && !event.allDay ? eventParts?.time ?? "" : ""} /></div>
-    <div className="space-y-2"><Label htmlFor="event-end-time">End time <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="event-end-time" name="endTime" type="time" defaultValue={event && !event.allDay ? eventEndParts?.time ?? "" : ""} /></div>
+    <div className="space-y-2"><Label htmlFor="event-date">Start date</Label><Input id="event-date" name="date" type="date" required aria-invalid={Boolean(fieldErrors.date)} value={startDate} onChange={(event) => changeStartDate(event.target.value)} /></div>
+    <div className="space-y-2"><Label htmlFor="event-end-date">End date</Label><Input id="event-end-date" name="endDate" type="date" required min={startDate} aria-invalid={Boolean(fieldErrors.endDate)} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div>
+    <div className="space-y-2"><Label htmlFor="event-start-time">Start time <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="event-start-time" name="startTime" type="time" aria-invalid={Boolean(fieldErrors.startTime)} defaultValue={event && !event.allDay ? eventParts?.time ?? "" : ""} /></div>
+    <div className="space-y-2"><Label htmlFor="event-end-time">End time <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="event-end-time" name="endTime" type="time" aria-invalid={Boolean(fieldErrors.endTime)} defaultValue={event && !event.allDay ? eventEndParts?.time ?? "" : ""} /></div>
     <p className="col-span-full -mt-2 text-xs text-muted-foreground">Leave both times empty for an all-day event.</p>
     <div className="space-y-2"><Label htmlFor="location">Location</Label><Input id="location" name="location" defaultValue={event?.location ?? ""} placeholder="Optional" /></div>
     <SelectField label="Category" name="listId" defaultValue={event?.listId ?? "uncategorized"} options={[{ value: "uncategorized", label: "Uncategorized", color: "#64748b" }, ...lists.map((list) => ({ value: list.id, label: list.name, color: list.color }))]} transformValue={(value) => value === "uncategorized" ? "" : value} />
-    <RecurrenceFields rule={event?.recurrence ?? null} baseDate={eventParts?.date ?? fallbackDate} />
+    <RecurrenceFields rule={event?.recurrence ?? null} baseDate={eventParts?.date ?? fallbackDate} error={fieldErrors.recurrence?.[0]} />
     <div className="col-span-full space-y-2"><Label htmlFor="description">Details</Label><Textarea id="description" name="description" defaultValue={event?.description ?? ""} placeholder="Optional notes" /></div>
   </div>;
 }
@@ -191,7 +199,7 @@ const weekdayOptions = [
 function recurrenceFromFormData(formData: FormData): RecurrenceRule | null {
   const frequency = String(formData.get("recurrenceFrequency") || "none");
   if (frequency === "none") return null;
-  const interval = Math.max(1, Math.min(99, Number(formData.get("recurrenceInterval") || 1)));
+  const interval = normalizeRecurrenceInterval(String(formData.get("recurrenceInterval") || ""));
   const weekdays = String(formData.get("recurrenceWeekdays") || "").split(",").filter(Boolean).map(Number);
   const until = String(formData.get("recurrenceUntil") || "");
   return {
@@ -202,22 +210,27 @@ function recurrenceFromFormData(formData: FormData): RecurrenceRule | null {
   };
 }
 
-function RecurrenceFields({ rule, baseDate }: { rule: RecurrenceRule | null; baseDate: string }) {
+function RecurrenceFields({ rule, baseDate, error }: { rule: RecurrenceRule | null; baseDate: string; error?: string }) {
   type RecurrencePreset = RecurrenceFrequency | "none" | "custom";
   const simplePreset: RecurrencePreset = rule && rule.interval === 1 && !rule.weekdays?.length && !rule.until ? rule.frequency : rule ? "custom" : "none";
   const [preset, setPreset] = useState<RecurrencePreset>(simplePreset);
   const [frequency, setFrequency] = useState<RecurrenceFrequency>(rule?.frequency ?? "weekly");
-  const [interval, setInterval] = useState(rule?.interval ?? 1);
+  const [intervalInput, setIntervalInput] = useState(String(rule?.interval ?? 1));
   const [weekdays, setWeekdays] = useState<number[]>(rule?.weekdays?.length ? rule.weekdays : [new Date(`${baseDate}T12:00:00`).getDay()]);
   const [until, setUntil] = useState(rule?.until ?? "");
   const activeFrequency = preset === "custom" ? frequency : preset;
+  const interval = normalizeRecurrenceInterval(intervalInput);
   const activeInterval = preset === "custom" ? interval : 1;
 
   function toggleWeekday(day: number) {
     setWeekdays((current) => current.includes(day) ? (current.length === 1 ? current : current.filter((value) => value !== day)) : [...current, day].sort());
   }
 
-  return <div className="col-span-full space-y-3 rounded-xl border bg-secondary/25 p-3">
+  function adjustInterval(amount: number) {
+    setIntervalInput(String(Math.max(1, Math.min(99, interval + amount))));
+  }
+
+  return <div className={`col-span-full space-y-3 rounded-xl border bg-secondary/25 p-3 ${error ? "border-destructive" : ""}`} aria-invalid={Boolean(error)}>
     <div className="space-y-2"><Label>Repeats</Label><Select value={preset} onValueChange={(value) => setPreset(value as RecurrencePreset)}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>
       <SelectItem value="none">Never</SelectItem><SelectItem value="daily">Daily</SelectItem><SelectItem value="weekly">Weekly</SelectItem><SelectItem value="monthly">Monthly</SelectItem><SelectItem value="yearly">Annually</SelectItem><SelectItem value="custom">Custom…</SelectItem>
     </SelectContent></Select></div>
@@ -225,12 +238,13 @@ function RecurrenceFields({ rule, baseDate }: { rule: RecurrenceRule | null; bas
     <input type="hidden" name="recurrenceInterval" value={activeInterval} />
     <input type="hidden" name="recurrenceWeekdays" value={preset === "custom" && frequency === "weekly" ? weekdays.join(",") : ""} />
     <input type="hidden" name="recurrenceUntil" value={preset === "custom" ? until : ""} />
-    {preset === "custom" && <div className="grid grid-cols-[96px_1fr] gap-3 max-sm:grid-cols-1">
-      <div className="space-y-2"><Label htmlFor="recurrence-interval">Every</Label><Input id="recurrence-interval" type="number" min={1} max={99} value={interval} onChange={(event) => setInterval(Math.max(1, Math.min(99, Number(event.target.value) || 1)))} /></div>
+    {preset === "custom" && <div className="grid grid-cols-[minmax(176px,0.85fr)_minmax(0,1fr)] gap-3 max-sm:grid-cols-1">
+      <div className="space-y-2"><Label htmlFor="recurrence-interval">Every</Label><div className="grid grid-cols-[40px_1fr_40px] gap-2"><Button type="button" variant="outline" size="icon" aria-label="Decrease repeat interval" disabled={interval <= 1} onClick={() => adjustInterval(-1)}><Minus /></Button><Input id="recurrence-interval" type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="off" className="text-center tabular-nums" value={intervalInput} onChange={(event) => setIntervalInput(recurrenceIntervalDigits(event.target.value))} onBlur={() => setIntervalInput(String(interval))} /><Button type="button" variant="outline" size="icon" aria-label="Increase repeat interval" disabled={interval >= 99} onClick={() => adjustInterval(1)}><Plus /></Button></div></div>
       <div className="space-y-2"><Label>Unit</Label><Select value={frequency} onValueChange={(value) => setFrequency(value as RecurrenceFrequency)}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="daily">Days</SelectItem><SelectItem value="weekly">Weeks</SelectItem><SelectItem value="monthly">Months</SelectItem><SelectItem value="yearly">Years</SelectItem></SelectContent></Select></div>
       {frequency === "weekly" && <div className="col-span-full space-y-2"><Label>On</Label><div className="grid grid-cols-7 gap-1">{weekdayOptions.map((day) => <Button key={day.value} type="button" size="sm" variant={weekdays.includes(day.value) ? "default" : "outline"} className="px-0" aria-pressed={weekdays.includes(day.value)} onClick={() => toggleWeekday(day.value)}>{day.label}</Button>)}</div></div>}
-      <div className="col-span-full space-y-2"><Label htmlFor="recurrence-until">End date <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="recurrence-until" type="date" min={baseDate} value={until} onChange={(event) => setUntil(event.target.value)} /></div>
+      <div className="col-span-full space-y-2"><Label htmlFor="recurrence-until">End date <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="recurrence-until" type="date" min={baseDate} aria-invalid={Boolean(error)} value={until} onChange={(event) => setUntil(event.target.value)} /></div>
     </div>}
+    {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
   </div>;
 }
 

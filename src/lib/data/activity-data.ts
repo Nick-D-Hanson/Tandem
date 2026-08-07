@@ -24,7 +24,12 @@ export async function getActivityPage(cursor?: ActivityCursor | null): Promise<A
   const workspaceId = membership.workspaceId;
   const [workspaceRows, readRows] = await Promise.all([
     db.select({ timezone: workspaces.timezone }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1),
-    db.select({ lastSeenAt: activityReadStates.lastSeenAt, lastSeenEventId: activityReadStates.lastSeenEventId }).from(activityReadStates).where(and(eq(activityReadStates.workspaceId, workspaceId), eq(activityReadStates.userId, user.id))).limit(1),
+    db.select({
+      lastSeenAt: activityReadStates.lastSeenAt,
+      lastSeenEventId: activityReadStates.lastSeenEventId,
+      clearedThroughAt: activityReadStates.clearedThroughAt,
+      clearedThroughEventId: activityReadStates.clearedThroughEventId,
+    }).from(activityReadStates).where(and(eq(activityReadStates.workspaceId, workspaceId), eq(activityReadStates.userId, user.id))).limit(1),
   ]);
   const workspace = workspaceRows[0];
   if (!workspace) throw new Error("NOT_FOUND");
@@ -35,9 +40,10 @@ export async function getActivityPage(cursor?: ActivityCursor | null): Promise<A
   ) : undefined;
   const readState = readRows[0];
   const unreadCondition = afterWatermark(readState?.lastSeenAt ?? membership.joinedAt, readState?.lastSeenEventId ?? null);
+  const visibleCondition = afterWatermark(readState?.clearedThroughAt ?? null, readState?.clearedThroughEventId ?? null);
 
   const [rows, unreadRows] = await Promise.all([
-    db.select().from(activityEvents).where(and(eq(activityEvents.workspaceId, workspaceId), pageCondition)).orderBy(desc(activityEvents.occurredAt), desc(activityEvents.id)).limit(PAGE_SIZE + 1),
+    db.select().from(activityEvents).where(and(eq(activityEvents.workspaceId, workspaceId), visibleCondition, pageCondition)).orderBy(desc(activityEvents.occurredAt), desc(activityEvents.id)).limit(PAGE_SIZE + 1),
     db.select({ count: count() }).from(activityEvents).where(and(
       eq(activityEvents.workspaceId, workspaceId),
       ne(activityEvents.actorUserId, user.id),

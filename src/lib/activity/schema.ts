@@ -32,7 +32,7 @@ export const activityCursorSchema = z.object({
   id: z.uuid(),
 });
 
-export const activitySeenSchema = activityCursorSchema;
+export const activitySeenSchema = z.object({ id: z.uuid() });
 
 export type ActivityEntityType = z.infer<typeof activityEntityTypeSchema>;
 export type ActivityActionType = z.infer<typeof activityActionTypeSchema>;

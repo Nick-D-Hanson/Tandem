@@ -1,7 +1,6 @@
 "use server";
 
-import { and, eq, isNull, lt, or } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
 
 import { activityEvents, activityReadStates } from "../../../db/schema";
 import { activityCursorSchema, activitySeenSchema } from "@/lib/activity/schema";
@@ -27,13 +26,12 @@ export async function markActivitySeenAction(input: unknown): Promise<ActionResu
   if (!parsed.success) return { ok: false, error: "Unable to mark activity as read." };
   try {
     const { user, membership } = await requireWorkspace();
-    const occurredAt = new Date(parsed.data.occurredAt);
-    const [accessibleEvent] = await db.select({ id: activityEvents.id }).from(activityEvents).where(and(
+    const [accessibleEvent] = await db.select({ id: activityEvents.id, occurredAt: activityEvents.occurredAt }).from(activityEvents).where(and(
       eq(activityEvents.id, parsed.data.id),
       eq(activityEvents.workspaceId, membership.workspaceId),
-      eq(activityEvents.occurredAt, occurredAt),
     )).limit(1);
     if (!accessibleEvent) throw new Error("NOT_FOUND");
+    const occurredAt = accessibleEvent.occurredAt;
     await db.insert(activityReadStates).values({
       workspaceId: membership.workspaceId,
       userId: user.id,
@@ -48,7 +46,45 @@ export async function markActivitySeenAction(input: unknown): Promise<ActionResu
         and(eq(activityReadStates.lastSeenAt, occurredAt), or(isNull(activityReadStates.lastSeenEventId), lt(activityReadStates.lastSeenEventId, parsed.data.id))),
       ),
     });
-    revalidatePath("/app");
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return actionFailure(error);
+  }
+}
+
+export async function clearActivityAction(): Promise<ActionResult> {
+  try {
+    const { user, membership } = await requireWorkspace();
+    const [newest] = await db.select({ id: activityEvents.id, occurredAt: activityEvents.occurredAt }).from(activityEvents).where(
+      eq(activityEvents.workspaceId, membership.workspaceId),
+    ).orderBy(desc(activityEvents.occurredAt), desc(activityEvents.id)).limit(1);
+    if (!newest) return { ok: true, data: undefined };
+
+    await db.insert(activityReadStates).values({
+      workspaceId: membership.workspaceId,
+      userId: user.id,
+      lastSeenAt: newest.occurredAt,
+      lastSeenEventId: newest.id,
+      clearedThroughAt: newest.occurredAt,
+      clearedThroughEventId: newest.id,
+    }).onConflictDoUpdate({
+      target: [activityReadStates.workspaceId, activityReadStates.userId],
+      set: {
+        lastSeenAt: newest.occurredAt,
+        lastSeenEventId: newest.id,
+        clearedThroughAt: newest.occurredAt,
+        clearedThroughEventId: newest.id,
+        updatedAt: new Date(),
+      },
+      setWhere: or(
+        isNull(activityReadStates.clearedThroughAt),
+        lt(activityReadStates.clearedThroughAt, newest.occurredAt),
+        and(
+          eq(activityReadStates.clearedThroughAt, newest.occurredAt),
+          or(isNull(activityReadStates.clearedThroughEventId), lt(activityReadStates.clearedThroughEventId, newest.id)),
+        ),
+      ),
+    });
     return { ok: true, data: undefined };
   } catch (error) {
     return actionFailure(error);

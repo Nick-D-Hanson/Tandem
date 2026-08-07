@@ -61,3 +61,12 @@ describe("Daily digest migration", () => {
     expect(migration).toContain("'pending', 'processing', 'sent', 'expired', 'failed'");
   });
 });
+
+describe("Activity clear watermark migration", () => {
+  const migration = readFileSync(new URL("../db/migrations/0007_early_grim_reaper.sql", import.meta.url), "utf8");
+
+  it("adds a private timestamp and deterministic event-ID clear watermark", () => {
+    expect(migration).toContain('ADD COLUMN "cleared_through_at" timestamp with time zone');
+    expect(migration).toContain('ADD COLUMN "cleared_through_event_id" uuid');
+  });
+});

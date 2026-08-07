@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { nextRecurrenceDate, parseRecurrence, recurrenceMatchesDate, serializeRecurrence } from "@/lib/recurrence";
+import { nextRecurrenceDate, normalizeRecurrenceInterval, parseRecurrence, recurrenceIntervalDigits, recurrenceMatchesDate, serializeRecurrence } from "@/lib/recurrence";
 
 describe("recurrence rules", () => {
+  it("accepts direct mobile integer entry while constraining the interval", () => {
+    expect(recurrenceIntervalDigits("2a5")).toBe("25");
+    expect(recurrenceIntervalDigits("999")).toBe("99");
+    expect(normalizeRecurrenceInterval("25")).toBe(25);
+    expect(normalizeRecurrenceInterval(0)).toBe(1);
+    expect(normalizeRecurrenceInterval(120)).toBe(99);
+    expect(normalizeRecurrenceInterval("")).toBe(1);
+  });
   it("supports annual events", () => {
     const rule = { frequency: "yearly" as const, interval: 1 };
     expect(recurrenceMatchesDate("2026-08-02", "2027-08-02", rule)).toBe(true);

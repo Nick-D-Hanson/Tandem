@@ -214,6 +214,8 @@ export const activityReadStates = pgTable(
     userId: text("user_id").notNull(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     lastSeenEventId: uuid("last_seen_event_id"),
+    clearedThroughAt: timestamp("cleared_through_at", { withTimezone: true }),
+    clearedThroughEventId: uuid("cleared_through_event_id"),
     ...auditColumns,
   },
   (table) => [

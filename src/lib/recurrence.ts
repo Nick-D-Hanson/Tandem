@@ -11,6 +11,15 @@ export type RecurrenceRule = {
   until?: string;
 };
 
+export function recurrenceIntervalDigits(value: string) {
+  return value.replace(/\D/g, "").slice(0, 2);
+}
+
+export function normalizeRecurrenceInterval(value: string | number | null | undefined) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isInteger(parsed) ? Math.max(1, Math.min(99, parsed)) : 1;
+}
+
 const frequencies = new Set<RecurrenceFrequency>(["daily", "weekly", "monthly", "yearly"]);
 
 export function parseRecurrence(value: string | null | undefined): RecurrenceRule | null {
