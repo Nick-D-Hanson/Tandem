@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "api:contract": "tsx scripts/generate-native-api-contract.ts",
+    "api:contract:check": "tsx scripts/generate-native-api-contract.ts --check",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx db/migrate.ts",
