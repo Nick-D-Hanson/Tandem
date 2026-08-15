@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const uuidSchema = z.uuid();
 const isoTimestampSchema = z.iso.datetime({ offset: true });
+const dateOnlySchema = z.iso.date();
 
 export const apiErrorCodeSchema = z.enum([
   "VALIDATION_ERROR",
@@ -15,18 +16,18 @@ export const apiErrorCodeSchema = z.enum([
 export const apiErrorSchema = z.object({
   code: apiErrorCodeSchema,
   message: z.string().min(1).max(200),
-});
+}).strict();
 
 export const apiFailureSchema = z.object({
   ok: z.literal(false),
   error: apiErrorSchema,
-});
+}).strict();
 
 export const apiMemberSchema = z.object({
   userId: z.string().min(1).max(200),
   displayName: z.string().min(1).max(120),
   avatarUrl: z.url().nullable(),
-});
+}).strict();
 
 export const apiMeDataSchema = z.object({
   apiVersion: z.literal("v1"),
@@ -36,23 +37,141 @@ export const apiMeDataSchema = z.object({
     email: z.email(),
     displayName: z.string().min(1).max(120),
     avatarUrl: z.url().nullable(),
-  }),
+  }).strict(),
   workspace: z.object({
     id: uuidSchema,
     name: z.string().min(1).max(120),
     timezone: z.string().min(1).max(100),
-  }),
+  }).strict(),
   members: z.array(apiMemberSchema).min(1).max(2),
-});
+}).strict();
 
 export function apiSuccessSchema<T extends z.ZodType>(dataSchema: T) {
-  return z.object({ ok: z.literal(true), data: dataSchema });
+  return z.object({ ok: z.literal(true), data: dataSchema }).strict();
 }
 
 export const apiMeSuccessSchema = apiSuccessSchema(apiMeDataSchema);
 export const apiMeResponseSchema = z.union([apiMeSuccessSchema, apiFailureSchema]);
 
+export const apiCategorySchema = z.object({
+  id: uuidSchema,
+  name: z.string().min(1).max(120),
+  color: z.string().min(1).max(32),
+  position: z.number().int().min(0),
+}).strict();
+
+export const apiRecurrenceSchema = z.object({
+  frequency: z.enum(["daily", "weekly", "monthly", "yearly"]),
+  interval: z.number().int().min(1).max(99),
+  weekdays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+  until: dateOnlySchema.optional(),
+}).strict();
+
+export const apiTaskSchema = z.object({
+  id: uuidSchema,
+  title: z.string().min(1).max(300),
+  notes: z.string().nullable(),
+  dueAt: isoTimestampSchema.nullable(),
+  dueIsAllDay: z.boolean(),
+  assigneeUserId: z.string().max(200).nullable(),
+  listId: uuidSchema.nullable(),
+  priority: z.enum(["none", "low", "medium", "high"]),
+  completedAt: isoTimestampSchema.nullable(),
+  recurrence: apiRecurrenceSchema.nullable(),
+  createdAt: isoTimestampSchema,
+  updatedAt: isoTimestampSchema,
+}).strict();
+
+export const apiEventSchema = z.object({
+  id: uuidSchema,
+  listId: uuidSchema.nullable(),
+  title: z.string().min(1).max(300),
+  description: z.string().nullable(),
+  location: z.string().nullable(),
+  startAt: isoTimestampSchema,
+  endAt: isoTimestampSchema,
+  allDay: z.boolean(),
+  color: z.string().min(1).max(32),
+  recurrence: apiRecurrenceSchema.nullable(),
+  createdAt: isoTimestampSchema,
+  updatedAt: isoTimestampSchema,
+}).strict();
+
+export const apiCategoriesDataSchema = z.object({
+  categories: z.array(apiCategorySchema).max(100),
+}).strict();
+
+export const apiTasksDataSchema = z.object({
+  tasks: z.array(apiTaskSchema).max(100),
+  nextCursor: isoTimestampSchema.nullable(),
+}).strict();
+
+export const apiCalendarDataSchema = z.object({
+  workspaceTimezone: z.string().min(1).max(100),
+  start: dateOnlySchema,
+  end: dateOnlySchema,
+  tasks: z.array(apiTaskSchema).max(500),
+  events: z.array(apiEventSchema).max(500),
+  truncated: z.boolean(),
+}).strict();
+
+export const apiAgendaItemSchema = z.object({
+  id: uuidSchema,
+  content: z.string().min(1).max(300),
+  date: dateOnlySchema,
+  position: z.number().int().min(0),
+  createdAt: isoTimestampSchema,
+  updatedAt: isoTimestampSchema,
+}).strict();
+
+export const apiAgendaDataSchema = z.object({
+  currentUserId: z.string().min(1).max(200),
+  workspaceTimezone: z.string().min(1).max(100),
+  today: dateOnlySchema,
+  agendas: z.array(z.object({
+    ownerUserId: z.string().min(1).max(200),
+    displayName: z.string().min(1).max(120),
+    canEdit: z.boolean(),
+    isShared: z.boolean(),
+    days: z.array(z.object({
+      date: dateOnlySchema,
+      items: z.array(apiAgendaItemSchema),
+      isYesterday: z.boolean(),
+    }).strict()).max(4),
+  }).strict()).max(2),
+}).strict();
+
+export const apiActivityDataSchema = z.object({
+  items: z.array(z.object({
+    id: uuidSchema,
+    actorUserId: z.string().min(1).max(200),
+    actorDisplayName: z.string().min(1).max(120),
+    entityType: z.enum(["task", "event"]),
+    entityId: uuidSchema,
+    entityTitle: z.string().min(1).max(300),
+    actionType: z.enum(["created", "completed", "reopened", "deleted", "updated"]),
+    details: z.unknown().nullable(),
+    occurredAt: isoTimestampSchema,
+  }).strict()).max(50),
+  unreadCount: z.number().int().min(0),
+  nextCursor: z.object({ occurredAt: isoTimestampSchema, id: uuidSchema }).strict().nullable(),
+  workspaceTimezone: z.string().min(1).max(100),
+  currentUserId: z.string().min(1).max(200),
+}).strict();
+
+export const apiCategoriesSuccessSchema = apiSuccessSchema(apiCategoriesDataSchema);
+export const apiTasksSuccessSchema = apiSuccessSchema(apiTasksDataSchema);
+export const apiCalendarSuccessSchema = apiSuccessSchema(apiCalendarDataSchema);
+export const apiAgendaSuccessSchema = apiSuccessSchema(apiAgendaDataSchema);
+export const apiActivitySuccessSchema = apiSuccessSchema(apiActivityDataSchema);
+
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 export type ApiFailure = z.infer<typeof apiFailureSchema>;
 export type ApiMeData = z.infer<typeof apiMeDataSchema>;
 export type ApiMeResponse = z.infer<typeof apiMeResponseSchema>;
+export type ApiCategory = z.infer<typeof apiCategorySchema>;
+export type ApiTask = z.infer<typeof apiTaskSchema>;
+export type ApiEvent = z.infer<typeof apiEventSchema>;
+export type ApiCategoriesData = z.infer<typeof apiCategoriesDataSchema>;
+export type ApiTasksData = z.infer<typeof apiTasksDataSchema>;
+export type ApiCalendarData = z.infer<typeof apiCalendarDataSchema>;

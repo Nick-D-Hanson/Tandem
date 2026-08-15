@@ -58,6 +58,18 @@ Possible statuses:
 - `404`: no authorized workspace/resource
 - `500`: generic server error
 
-## Planned compatible additions
+## Bounded read endpoints
 
-Later phases add bounded calendar, Task, category, My List, Activity, widget-snapshot, mutation, device-push, and settings endpoints. Each route must authenticate, derive workspace membership server-side, validate inputs/outputs, apply existing domain rules, and avoid revealing cross-workspace resource existence.
+All routes authenticate and derive the workspace from membership; none accepts a client workspace ID.
+
+| Endpoint | Bounds |
+| --- | --- |
+| `GET /api/v1/categories` | 100 ordered categories maximum |
+| `GET /api/v1/tasks?limit=50&before=<timestamp>` | Cursor page, 1–100 Tasks |
+| `GET /api/v1/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD` | Inclusive workspace-local window, maximum 93 days and 500 Task/Event masters each |
+| `GET /api/v1/my-list` | Existing authorization policy; at most two owners and yesterday plus three current/future days |
+| `GET /api/v1/activity?cursorOccurredAt=<timestamp>&cursorId=<uuid>` | Existing cursor semantics, 50 Activity entries per page |
+
+Calendar timestamps are derived from date-only parameters using the workspace timezone. Recurring masters are included so the client can use the same recurrence rules; calculated recurring occurrences remain read-only.
+
+Future compatible additions may add widget snapshots, mutations, native device push, and settings endpoints. Each must preserve the same authentication, output validation, safe-error, and cross-workspace non-disclosure rules.

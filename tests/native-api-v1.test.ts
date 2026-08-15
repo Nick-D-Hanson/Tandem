@@ -6,6 +6,7 @@ import { buildNativeApiContractArtifact } from "@/lib/api/v1/contract-artifact";
 import { apiFailureSchema, apiMeSuccessSchema } from "@/lib/api/v1/contracts";
 import { buildMeData } from "@/lib/api/v1/me-data";
 import { createMeHandler } from "@/lib/api/v1/me-handler";
+import { parseActivityCursor, parseCalendarWindow, parseTaskQuery } from "@/lib/api/v1/read-params";
 
 const workspaceId = "3344cc5f-bb0f-4c38-894d-a79122869f1d";
 const generatedAt = new Date("2026-08-15T17:00:00.000Z");
@@ -59,5 +60,41 @@ describe("native API v1 /me", () => {
   it("keeps the checked contract artifact deterministic", async () => {
     const artifact = JSON.parse(await readFile("contracts/native-api-v1.json", "utf8"));
     expect(artifact).toEqual(buildNativeApiContractArtifact());
+  });
+
+  it("rejects undeclared response fields instead of silently stripping them", () => {
+    const valid = { ok: true, data: buildMeData(context, workspace, members, generatedAt) };
+    expect(() => apiMeSuccessSchema.parse({ ...valid, databaseUrl: "secret" })).toThrow();
+    expect(() => apiMeSuccessSchema.parse({
+      ...valid,
+      data: { ...valid.data, workspace: { ...valid.data.workspace, createdBy: "user-1" } },
+    })).toThrow();
+  });
+});
+
+describe("native API v1 bounded read queries", () => {
+  it("accepts an inclusive calendar window up to 93 days", () => {
+    expect(parseCalendarWindow("https://tandem.test/api/v1/calendar?start=2026-08-01&end=2026-10-31"))
+      .toEqual({ start: "2026-08-01", end: "2026-10-31" });
+  });
+
+  it("rejects missing, reversed, invalid, and oversized calendar windows", () => {
+    for (const query of [
+      "start=2026-08-01",
+      "start=2026-08-02&end=2026-08-01",
+      "start=2026-02-30&end=2026-03-01",
+      "start=2026-01-01&end=2026-04-15",
+    ]) {
+      expect(() => parseCalendarWindow(`https://tandem.test/api/v1/calendar?${query}`)).toThrow("VALIDATION_ERROR");
+    }
+  });
+
+  it("bounds task pages and requires both activity cursor fields", () => {
+    expect(parseTaskQuery("https://tandem.test/api/v1/tasks")).toEqual({ limit: 50 });
+    expect(parseTaskQuery("https://tandem.test/api/v1/tasks?limit=100")).toEqual({ limit: 100 });
+    expect(() => parseTaskQuery("https://tandem.test/api/v1/tasks?limit=101")).toThrow("VALIDATION_ERROR");
+    expect(parseActivityCursor("https://tandem.test/api/v1/activity")).toBeNull();
+    expect(() => parseActivityCursor("https://tandem.test/api/v1/activity?cursorId=3344cc5f-bb0f-4c38-894d-a79122869f1d"))
+      .toThrow("VALIDATION_ERROR");
   });
 });
