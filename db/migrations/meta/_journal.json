@@ -57,6 +57,13 @@
       "when": 1786112759782,
       "tag": "0007_early_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786824548753,
+      "tag": "0008_abnormal_gertrude_yorkes",
+      "breakpoints": true
     }
   ]
 }

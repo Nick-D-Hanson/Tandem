@@ -10,8 +10,12 @@ import {
   apiEventMoveSuccessSchema,
   apiMeSuccessSchema,
   apiMoveDateBodySchema,
+  apiNativePushDeviceSuccessSchema,
+  apiNativePushDisableBodySchema,
+  apiNativePushRegistrationBodySchema,
   apiTaskMoveSuccessSchema,
   apiTasksSuccessSchema,
+  apiWidgetSnapshotSuccessSchema,
 } from "./contracts";
 
 function readEndpoint(successSchema: z.ZodType, query?: Record<string, string>) {
@@ -30,7 +34,7 @@ function readEndpoint(successSchema: z.ZodType, query?: Record<string, string>) 
   };
 }
 
-function mutationEndpoint(method: "POST" | "PATCH", successSchema: z.ZodType, bodySchema?: z.ZodType) {
+function mutationEndpoint(method: "POST" | "PATCH" | "DELETE", successSchema: z.ZodType, bodySchema?: z.ZodType) {
   return {
     method,
     authentication: "Neon Auth session",
@@ -71,6 +75,15 @@ export function buildNativeApiContractArtifact() {
       "/api/v1/my-list/rollover": mutationEndpoint("POST", apiAgendaRolloverSuccessSchema),
       "/api/v1/tasks/:id/move-date": mutationEndpoint("PATCH", apiTaskMoveSuccessSchema, apiMoveDateBodySchema),
       "/api/v1/events/:id/move-date": mutationEndpoint("PATCH", apiEventMoveSuccessSchema, apiMoveDateBodySchema),
+      "/api/v1/widget-snapshot": readEndpoint(apiWidgetSnapshotSuccessSchema),
+      "/api/v1/push/devices": {
+        authentication: "Neon Auth session",
+        cache: "private, no-store",
+        operations: {
+          POST: mutationEndpoint("POST", apiNativePushDeviceSuccessSchema, apiNativePushRegistrationBodySchema),
+          DELETE: mutationEndpoint("DELETE", apiNativePushDeviceSuccessSchema, apiNativePushDisableBodySchema),
+        },
+      },
     },
   } as const;
 }

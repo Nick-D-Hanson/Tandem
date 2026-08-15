@@ -249,6 +249,33 @@ export const pushSubscriptions = pgTable(
   ],
 );
 
+export const nativePushDevices = pgTable(
+  "native_push_devices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    deviceId: uuid("device_id").notNull(),
+    expoPushToken: text("expo_push_token").notNull(),
+    platform: text("platform").notNull().default("ios"),
+    enabled: boolean("enabled").notNull().default(true),
+    lastRegisteredAt: timestamp("last_registered_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSuccessfulDeliveryAt: timestamp("last_successful_delivery_at", { withTimezone: true }),
+    lastFailureAt: timestamp("last_failure_at", { withTimezone: true }),
+    failureCount: integer("failure_count").notNull().default(0),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("native_push_devices_workspace_user_device_unique").on(table.workspaceId, table.userId, table.deviceId),
+    uniqueIndex("native_push_devices_token_unique").on(table.expoPushToken),
+    index("native_push_devices_workspace_user_enabled_idx").on(table.workspaceId, table.userId, table.enabled),
+    check("native_push_devices_platform_check", sql`${table.platform} in ('ios')`),
+    check("native_push_devices_failure_count_check", sql`${table.failureCount} >= 0`),
+  ],
+);
+
 export const activityDigests = pgTable(
   "activity_digests",
   {
@@ -311,5 +338,6 @@ export type AgendaItemRow = typeof agendaItems.$inferSelect;
 export type ActivityEventRow = typeof activityEvents.$inferSelect;
 export type ActivityReadStateRow = typeof activityReadStates.$inferSelect;
 export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
+export type NativePushDeviceRow = typeof nativePushDevices.$inferSelect;
 export type ActivityDigestRow = typeof activityDigests.$inferSelect;
 export type ActivityDigestDeliveryRow = typeof activityDigestDeliveries.$inferSelect;

@@ -186,6 +186,50 @@ export const apiTaskMoveSuccessSchema = apiSuccessSchema(apiTaskMoveDataSchema);
 export const apiEventMoveSuccessSchema = apiSuccessSchema(apiEventMoveDataSchema);
 export const apiAgendaRolloverSuccessSchema = apiSuccessSchema(apiAgendaRolloverDataSchema);
 
+export const apiWidgetItemSchema = z.object({
+  type: z.enum(["event", "task"]),
+  id: uuidSchema,
+  title: z.string().min(1).max(300),
+  dateLabel: z.string().min(1).max(80),
+  categoryColor: z.string().min(1).max(32),
+  priority: z.enum(["None", "Low", "Medium", "High"]).nullable(),
+}).strict();
+
+export const apiWidgetMyListItemSchema = z.object({
+  id: uuidSchema,
+  title: z.string().min(1).max(300),
+}).strict();
+
+export const apiWidgetSnapshotDataSchema = z.object({
+  generatedAt: isoTimestampSchema,
+  workspaceTimeZone: z.string().min(1).max(100),
+  localDate: dateOnlySchema,
+  nextUp: z.array(apiWidgetItemSchema).max(1),
+  today: z.object({
+    calendar: z.array(apiWidgetItemSchema).max(5),
+    tasks: z.array(apiWidgetItemSchema).max(5),
+    myList: z.array(apiWidgetMyListItemSchema).max(7),
+  }).strict(),
+  upcoming: z.array(apiWidgetItemSchema).max(5),
+}).strict();
+
+export const apiWidgetSnapshotSuccessSchema = apiSuccessSchema(apiWidgetSnapshotDataSchema);
+export type ApiWidgetSnapshotData = z.infer<typeof apiWidgetSnapshotDataSchema>;
+
+export const apiNativePushRegistrationBodySchema = z.object({
+  deviceId: uuidSchema,
+  platform: z.literal("ios"),
+  expoPushToken: z.string().min(20).max(512).regex(/^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/),
+}).strict();
+export const apiNativePushDisableBodySchema = z.object({ deviceId: uuidSchema }).strict();
+export const apiNativePushDeviceDataSchema = z.object({
+  id: uuidSchema,
+  deviceId: uuidSchema,
+  platform: z.literal("ios"),
+  enabled: z.boolean(),
+}).strict();
+export const apiNativePushDeviceSuccessSchema = apiSuccessSchema(apiNativePushDeviceDataSchema);
+
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 export type ApiFailure = z.infer<typeof apiFailureSchema>;
 export type ApiMeData = z.infer<typeof apiMeDataSchema>;

@@ -69,6 +69,7 @@ All routes authenticate and derive the workspace from membership; none accepts a
 | `GET /api/v1/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD` | Inclusive workspace-local window, maximum 93 days and 500 Task/Event masters each |
 | `GET /api/v1/my-list` | Existing authorization policy; at most two owners and yesterday plus three current/future days |
 | `GET /api/v1/activity?cursorOccurredAt=<timestamp>&cursorId=<uuid>` | Existing cursor semantics, 50 Activity entries per page |
+| `GET /api/v1/widget-snapshot` | Eight workspace-local days reduced to 1 next-up, 5 calendar, 5 Tasks, 7 own My List rows, and 5 upcoming rows |
 
 Calendar timestamps are derived from date-only parameters using the workspace timezone. Recurring masters are included so the client can use the same recurrence rules; calculated recurring occurrences remain read-only.
 
@@ -82,4 +83,10 @@ Calendar timestamps are derived from date-only parameters using the workspace ti
 
 All mutation resources are re-fetched with the server-derived workspace inside a transaction. Date moves write through the canonical Activity Summary builder exactly once. Recurring Events return `409 CONFLICT` because the current data model has no occurrence exceptions.
 
-Future compatible additions may add full CRUD, widget snapshots, native device push, and settings endpoints. Each must preserve the same authentication, output validation, safe-error, and cross-workspace non-disclosure rules.
+The widget snapshot intentionally omits Task notes, Event descriptions/locations, Activity, and the other member's My List—even when that list is shared. It contains no authentication material; the native app fetches it and writes only the compact display payload to the widget App Group.
+
+Future compatible additions may add full CRUD, native device push, and settings endpoints. Each must preserve the same authentication, output validation, safe-error, and cross-workspace non-disclosure rules.
+
+## Native push devices
+
+`POST /api/v1/push/devices` registers or rotates an Expo iOS push token for an authenticated installation. `DELETE` disables the caller's matching device. The API accepts a client installation UUID but never a user/workspace ID, never echoes the full token, and refuses a token already bound to a different identity/device. Browser VAPID subscriptions remain a separate transport.

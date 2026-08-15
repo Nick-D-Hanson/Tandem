@@ -70,3 +70,14 @@ describe("Activity clear watermark migration", () => {
     expect(migration).toContain('ADD COLUMN "cleared_through_event_id" uuid');
   });
 });
+
+describe("Native push device migration", () => {
+  const migration = readFileSync(new URL("../db/migrations/0008_abnormal_gertrude_yorkes.sql", import.meta.url), "utf8");
+
+  it("separates native tokens from browser VAPID subscriptions and scopes installations", () => {
+    expect(migration).toContain('CREATE TABLE "native_push_devices"');
+    expect(migration).toContain('CREATE UNIQUE INDEX "native_push_devices_workspace_user_device_unique"');
+    expect(migration).toContain('CREATE UNIQUE INDEX "native_push_devices_token_unique"');
+    expect(migration).toContain('CHECK ("native_push_devices"."platform" in (\'ios\'))');
+  });
+});
