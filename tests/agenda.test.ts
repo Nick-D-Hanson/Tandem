@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isCompleteAgendaReorder, moveAgendaItem, normalizeAgendaOrder, type AgendaOrderItem } from "@/lib/agenda/ordering";
+import { planAgendaRollover } from "@/lib/agenda/rollover";
 import { buildAgendaDays, isAgendaEmpty } from "@/lib/agenda/view";
 import type { AgendaItemView } from "@/lib/types";
 
@@ -9,6 +10,19 @@ const second: AgendaOrderItem = { id: "second", date: "2026-08-02", position: 1 
 const third: AgendaOrderItem = { id: "third", date: "2026-08-03", position: 0 };
 
 describe("Agenda ordering", () => {
+  it("rolls yesterday behind existing today rows while preserving IDs and relative order", () => {
+    expect(planAgendaRollover([
+      { id: "yesterday-second", date: "2026-08-01", position: 9 },
+      { id: "today-second", date: "2026-08-02", position: 5 },
+      { id: "yesterday-first", date: "2026-08-01", position: 2 },
+      { id: "today-first", date: "2026-08-02", position: 1 },
+    ], "2026-08-01", "2026-08-02")).toEqual([
+      { id: "today-first", date: "2026-08-02", position: 0 },
+      { id: "today-second", date: "2026-08-02", position: 1 },
+      { id: "yesterday-first", date: "2026-08-02", position: 2 },
+      { id: "yesterday-second", date: "2026-08-02", position: 3 },
+    ]);
+  });
   it("normalizes positions within each day", () => {
     expect(normalizeAgendaOrder([{ date: "2026-08-02", itemIds: ["second", "first"] }])).toEqual([
       { id: "second", date: "2026-08-02", position: 0 },

@@ -165,6 +165,27 @@ export const apiCalendarSuccessSchema = apiSuccessSchema(apiCalendarDataSchema);
 export const apiAgendaSuccessSchema = apiSuccessSchema(apiAgendaDataSchema);
 export const apiActivitySuccessSchema = apiSuccessSchema(apiActivityDataSchema);
 
+export const apiMoveDateBodySchema = z.object({ targetDate: dateOnlySchema }).strict();
+export const apiTaskMoveDataSchema = z.object({
+  id: uuidSchema,
+  dueAt: isoTimestampSchema,
+  dueIsAllDay: z.boolean(),
+}).strict();
+export const apiEventMoveDataSchema = z.object({
+  id: uuidSchema,
+  startAt: isoTimestampSchema,
+  endAt: isoTimestampSchema,
+  allDay: z.boolean(),
+}).strict();
+export const apiAgendaRolloverDataSchema = z.object({
+  movedCount: z.number().int().min(1),
+  today: dateOnlySchema,
+}).strict();
+
+export const apiTaskMoveSuccessSchema = apiSuccessSchema(apiTaskMoveDataSchema);
+export const apiEventMoveSuccessSchema = apiSuccessSchema(apiEventMoveDataSchema);
+export const apiAgendaRolloverSuccessSchema = apiSuccessSchema(apiAgendaRolloverDataSchema);
+
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 export type ApiFailure = z.infer<typeof apiFailureSchema>;
 export type ApiMeData = z.infer<typeof apiMeDataSchema>;

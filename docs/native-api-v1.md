@@ -72,4 +72,14 @@ All routes authenticate and derive the workspace from membership; none accepts a
 
 Calendar timestamps are derived from date-only parameters using the workspace timezone. Recurring masters are included so the client can use the same recurrence rules; calculated recurring occurrences remain read-only.
 
-Future compatible additions may add widget snapshots, mutations, native device push, and settings endpoints. Each must preserve the same authentication, output validation, safe-error, and cross-workspace non-disclosure rules.
+## Narrow date and rollover mutations
+
+| Endpoint | Rule |
+| --- | --- |
+| `POST /api/v1/my-list/rollover` | Owner-only; atomically appends all yesterday rows after today's rows, preserves IDs/order, normalizes positions |
+| `PATCH /api/v1/tasks/:id/move-date` | Accepts only `{ "targetDate": "YYYY-MM-DD" }`; preserves every non-date Task field and the local due time when present |
+| `PATCH /api/v1/events/:id/move-date` | Accepts only the target date; shifts both endpoints by the same calendar-day delta and preserves an all-day inclusive span |
+
+All mutation resources are re-fetched with the server-derived workspace inside a transaction. Date moves write through the canonical Activity Summary builder exactly once. Recurring Events return `409 CONFLICT` because the current data model has no occurrence exceptions.
+
+Future compatible additions may add full CRUD, widget snapshots, native device push, and settings endpoints. Each must preserve the same authentication, output validation, safe-error, and cross-workspace non-disclosure rules.

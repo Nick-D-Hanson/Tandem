@@ -2,11 +2,15 @@ import { z } from "zod";
 
 import {
   apiActivitySuccessSchema,
+  apiAgendaRolloverSuccessSchema,
   apiAgendaSuccessSchema,
   apiCalendarSuccessSchema,
   apiCategoriesSuccessSchema,
   apiFailureSchema,
+  apiEventMoveSuccessSchema,
   apiMeSuccessSchema,
+  apiMoveDateBodySchema,
+  apiTaskMoveSuccessSchema,
   apiTasksSuccessSchema,
 } from "./contracts";
 
@@ -21,6 +25,23 @@ function readEndpoint(successSchema: z.ZodType, query?: Record<string, string>) 
       "400": z.toJSONSchema(apiFailureSchema),
       "401": z.toJSONSchema(apiFailureSchema),
       "404": z.toJSONSchema(apiFailureSchema),
+      "500": z.toJSONSchema(apiFailureSchema),
+    },
+  };
+}
+
+function mutationEndpoint(method: "POST" | "PATCH", successSchema: z.ZodType, bodySchema?: z.ZodType) {
+  return {
+    method,
+    authentication: "Neon Auth session",
+    cache: "private, no-store",
+    ...(bodySchema ? { requestBody: z.toJSONSchema(bodySchema) } : {}),
+    responses: {
+      "200": z.toJSONSchema(successSchema),
+      "400": z.toJSONSchema(apiFailureSchema),
+      "401": z.toJSONSchema(apiFailureSchema),
+      "404": z.toJSONSchema(apiFailureSchema),
+      "409": z.toJSONSchema(apiFailureSchema),
       "500": z.toJSONSchema(apiFailureSchema),
     },
   };
@@ -47,6 +68,9 @@ export function buildNativeApiContractArtifact() {
         cursorOccurredAt: "optional ISO 8601 cursor; required with cursorId",
         cursorId: "optional UUID cursor; required with cursorOccurredAt",
       }),
+      "/api/v1/my-list/rollover": mutationEndpoint("POST", apiAgendaRolloverSuccessSchema),
+      "/api/v1/tasks/:id/move-date": mutationEndpoint("PATCH", apiTaskMoveSuccessSchema, apiMoveDateBodySchema),
+      "/api/v1/events/:id/move-date": mutationEndpoint("PATCH", apiEventMoveSuccessSchema, apiMoveDateBodySchema),
     },
   } as const;
 }

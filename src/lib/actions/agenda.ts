@@ -3,6 +3,7 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 
 import { agendaItems, agendaPreferences, workspaces } from "../../../db/schema";
+import { rolloverOwnAgendaToToday } from "@/lib/api/v1/agenda-mutation-service";
 import { requireWorkspace } from "@/lib/authorization";
 import { db, neonSql } from "@/lib/db/client";
 import { agendaDateWindow } from "@/lib/dates/timezone";
@@ -185,4 +186,12 @@ export async function reorderAgendaItems(input: unknown): Promise<ActionResult> 
     if (!validation?.valid) throw new Error("NOT_FOUND");
     return { ok: true, data: undefined };
   } catch (error) { return actionFailure(error); }
+}
+
+export async function rolloverAgendaToToday(): Promise<ActionResult<{ movedCount: number; today: string }>> {
+  try {
+    return { ok: true, data: await rolloverOwnAgendaToToday() };
+  } catch (error) {
+    return actionFailure(error);
+  }
 }

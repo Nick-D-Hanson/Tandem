@@ -22,13 +22,17 @@ Current Better Auth Expo documentation requires both:
 1. the `@better-auth/expo` **server plugin** added to the Better Auth server; and
 2. the Expo client plugin using `expo-secure-store`, an application scheme, and a corresponding trusted origin.
 
-Current Neon guidance says Neon Auth is a managed Better Auth server and is not a drop-in self-hosted Better Auth instance; custom Better Auth server plugins/handlers are not currently supported. That conflicts directly with the documented Expo integration prerequisite.
+Current Neon guidance says Managed Better Auth plugins are configured by Neon rather than installed directly. The August 2026 roadmap lists Next.js and browser React frameworks as supported, but does not list Expo/React Native; standalone frontend/backend architectures are still marked “coming soon.” The Expo plugin is not in the managed plugin list. That conflicts directly with the documented Expo integration prerequisite.
+
+Managed Better Auth now does expose a supported JWT plugin. It issues Ed25519-signed access tokens with a fixed 15-minute lifetime and a public JWKS endpoint. Tandem can safely validate those JWTs at `/api/v1` without trusting client claims. This narrows the gap, but does not close it: an Expo client still needs a supported way to establish, securely persist, revoke, and refresh the underlying Neon session. A short-lived access JWT alone is not a refresh/session design, and Tandem will not invent a long-lived refresh token or proxy users' passwords through an ad hoc bridge.
 
 References reviewed:
 
 - https://better-auth.com/docs/integrations/expo
-- https://neon.com/blog/neon-auth-branchable-identity-in-your-database
-- https://neon.com/docs/changelog/2026-01-30
+- https://neon.com/docs/auth/overview
+- https://neon.com/docs/auth/roadmap
+- https://neon.com/docs/auth/guides/plugins
+- https://neon.com/docs/auth/guides/plugins/jwt
 - https://docs.expo.dev/develop/authentication/
 - https://docs.expo.dev/linking/into-your-app/
 
@@ -38,10 +42,10 @@ No custom bearer token, manually replayed cookie, second user system, direct dat
 
 Production native authentication can proceed when one of these supported conditions is explicitly available and verified:
 
-1. Neon Auth documents and ships first-class Expo/React Native session support for the managed service, including secure cookie/session persistence and trusted native schemes.
-2. Neon Auth permits/configures the required Better Auth Expo server plugin and native trusted origins for this branch through a supported SDK or Neon Console workflow.
-3. A future `@neondatabase/auth` release exports a documented native adapter whose session credentials the existing Next.js backend can validate without a custom token bridge.
-4. The user explicitly approves a separately reviewed authentication architecture change. This migration does not make that change automatically and does not replace Neon Auth.
+1. Neon documents and ships first-class Expo/React Native session support for Managed Better Auth, including secure persistence, refresh/revocation, native callback schemes, and JWT retrieval.
+2. Neon explicitly confirms that `@better-auth/expo`'s client plugin is supported against its managed endpoint without the Expo server plugin, and documents the exact trusted-domain/callback setup.
+3. A future `@neondatabase/auth` or `@neondatabase/neon-js` release exports a documented native adapter whose session can obtain/refresh the managed 15-minute JWT.
+4. The user approves a separately reviewed migration to self-hosted Better Auth on Neon Postgres with `@better-auth/expo`. Neon remains the database, but this is an authentication-platform migration and requires a user/session migration and rollback plan.
 
 Until then, the native repository may implement a mock/contract-driven shell, screens, DTO validation, deep-link validation, cache behavior, widget transformations, and other credential-independent work. Any real `/api/v1/me` call, production data read/write, push registration, or authenticated widget snapshot remains blocked.
 
@@ -166,9 +170,21 @@ Required controls:
 
 - Installed package/version/exports inspected: PASS.
 - Better Auth Expo server/client requirements reviewed: PASS.
-- Neon managed-plugin limitation reviewed: PASS.
+- Neon managed plugin/roadmap and JWT capability reviewed: PASS.
+- Server-side Neon JWT verification path: DOCUMENTED, not yet enabled.
 - Secure supported native sign-in/session persistence: BLOCKED.
 - Authenticated native `/api/v1/me` call: BLOCKED.
 - Same-user/workspace end-to-end proof: BLOCKED.
 
 The correct Phase 2 outcome is a documented security block, not an insecure workaround or a false end-to-end claim.
+
+## Questions for Neon support
+
+Before changing production configuration, obtain written answers for the exact managed Auth version used by Tandem:
+
+1. Is `@neondatabase/neon-js/auth` officially supported in Expo SDK 57 / React Native without a browser cookie jar?
+2. How should an Expo app securely persist and refresh the Managed Better Auth session after email/password or OAuth sign-in?
+3. Can `@better-auth/expo/client` connect to a Managed Better Auth endpoint without the `@better-auth/expo` server plugin? If yes, what cookie names/origin override are supported?
+4. Can `tandem://` and a future HTTPS universal-link callback be allow-listed as trusted domains, and what callback validation does Neon perform?
+5. Is `authClient.token()` supported from that native session, including rotation/revocation after logout?
+6. Does Neon have a supported migration path if Tandem later moves between Managed Better Auth and self-hosted Better Auth while retaining existing users?

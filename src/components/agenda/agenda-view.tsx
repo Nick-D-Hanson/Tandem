@@ -2,7 +2,7 @@
 
 import { closestCenter, DndContext, KeyboardSensor, pointerWithin, PointerSensor, TouchSensor, useSensor, useSensors, type CollisionDetection, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Eye, EyeOff, Loader2, Plus, Users } from "lucide-react";
+import { ArrowRightToLine, Eye, EyeOff, Loader2, Plus, Users } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -11,8 +11,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { clearAgendaDay, createAgendaItem, deleteAgendaItem, reorderAgendaItems, updateAgendaItem, updateAgendaVisibility } from "@/lib/actions/agenda";
+import { clearAgendaDay, createAgendaItem, deleteAgendaItem, reorderAgendaItems, rolloverAgendaToToday, updateAgendaItem, updateAgendaVisibility } from "@/lib/actions/agenda";
 import { moveAgendaItem } from "@/lib/agenda/ordering";
+import { planAgendaRollover } from "@/lib/agenda/rollover";
 import { isAgendaEmpty } from "@/lib/agenda/view";
 import type { AgendaData, AgendaItemView, AgendaOwnerView } from "@/lib/types";
 
@@ -32,6 +33,7 @@ export function AgendaView({ data }: { data: AgendaData }) {
   const agendas = agendaState.current;
   const selected = agendas.find((agenda) => agenda.ownerUserId === selectedOwnerId) ?? agendas[0];
   const ownAgenda = agendas.find((agenda) => agenda.ownerUserId === data.currentUserId);
+  const ownYesterday = ownAgenda?.days.find((day) => day.isYesterday && day.items.length > 0);
   const selectedIsEmpty = selected ? isAgendaEmpty(selected.days) : false;
 
   function replaceAgenda(ownerUserId: string, update: (agenda: AgendaOwnerView) => AgendaOwnerView) {
@@ -122,6 +124,33 @@ export function AgendaView({ data }: { data: AgendaData }) {
     });
   }
 
+  function rolloverYesterday() {
+    if (!ownAgenda || !ownYesterday) return;
+    const snapshot = ownAgenda;
+    const allItems = ownAgenda.days.flatMap((day) => day.items);
+    const updates = planAgendaRollover(allItems, ownYesterday.date, data.today);
+    const byId = new Map(allItems.map((item) => [item.id, item]));
+    const todayItems = updates.flatMap((update) => {
+      const item = byId.get(update.id);
+      return item ? [{ ...item, date: update.date, position: update.position }] : [];
+    });
+    replaceAgenda(data.currentUserId, (agenda) => ({
+      ...agenda,
+      days: agenda.days
+        .filter((day) => !day.isYesterday)
+        .map((day) => day.date === data.today ? { ...day, items: todayItems } : day),
+    }));
+    startTransition(async () => {
+      const result = await rolloverAgendaToToday();
+      if (!result.ok) {
+        replaceAgenda(data.currentUserId, () => snapshot);
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`${result.data.movedCount} ${result.data.movedCount === 1 ? "item" : "items"} moved to today`);
+    });
+  }
+
   if (!selected || !ownAgenda) return <div className="grid flex-1 place-items-center text-sm text-muted-foreground">My List is unavailable.</div>;
 
   return (
@@ -131,6 +160,7 @@ export function AgendaView({ data }: { data: AgendaData }) {
           {agendas.map((agenda) => <Button key={agenda.ownerUserId} role="tab" aria-selected={agenda.ownerUserId === selected.ownerUserId} variant={agenda.ownerUserId === selected.ownerUserId ? "secondary" : "ghost"} size="sm" className="shrink-0" onClick={() => setSelectedOwnerId(agenda.ownerUserId)}>{agenda.ownerUserId === data.currentUserId ? "My List" : `${agenda.displayName}'s List`}</Button>)}
         </div>
         {selected.canEdit ? <div className="flex flex-wrap items-center gap-2">
+          {ownYesterday && <Button type="button" variant="outline" size="sm" disabled={pending} onClick={rolloverYesterday}><ArrowRightToLine />Move all to today</Button>}
           <ToggleGroup type="single" value={ownAgenda.isShared ? "shared" : "private"} variant="outline" size="sm" spacing={0} aria-label="My List visibility" onValueChange={changeVisibility}>
             <ToggleGroupItem value="private" aria-label="Private"><EyeOff />Private</ToggleGroupItem>
             <ToggleGroupItem value="shared" aria-label="Visible to workspace"><Users />Visible to workspace</ToggleGroupItem>
