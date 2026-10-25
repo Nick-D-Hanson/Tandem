@@ -1,6 +1,6 @@
 # Native authentication threat model
 
-Date reviewed: 2026-08-15  
+Date reviewed: 2026-08-15
 Status: **production native authentication blocked at the Phase 2 hard gate**
 
 ## Decision

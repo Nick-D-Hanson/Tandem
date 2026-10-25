@@ -1,9 +1,9 @@
 # Native iOS migration baseline
 
-Date: 2026-08-15  
-Web repository: `/Users/nick/Documents/Coupled`  
-Web branch: `feature/native-client-api-v1`  
-Native repository: `/Users/nick/Documents/Coupled-iOS` (independent Git repository)  
+Date: 2026-08-15
+Web repository: this repository
+Web branch at the time: `feature/native-client-api-v1`
+Native repository: separate Tandem iOS repository (independent Git repository)
 User-facing product name: **Tandem**
 
 ## Repository state and isolation
@@ -11,7 +11,7 @@ User-facing product name: **Tandem**
 - The web worktree was clean on `main` before migration work began (`## main...origin/main`).
 - No pre-existing user changes were present or discarded.
 - The local branch `feature/native-client-api-v1` was created; it has not been pushed.
-- `/Users/nick/Documents/Coupled-iOS` did not previously exist. It was created as an empty sibling directory and initialized with its own `.git` directory and no remote.
+- The separate native repository did not previously exist. It was initialized independently with no remote.
 - The web/PWA remains the canonical production application. The native repository will be a client of an authenticated `/api/v1` surface and will never import the web database layer or connect directly to Neon.
 
 ## Current technical baseline
