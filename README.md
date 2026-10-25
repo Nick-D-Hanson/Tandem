@@ -15,7 +15,7 @@ Tandem is a production-minded shared calendar and task workspace for couples, fa
 
 ## Local setup
 
-Prerequisites: Node.js 20+ and pnpm 11.
+Prerequisites: Node.js 22.13+ and pnpm 11.
 
 1. Create a Neon project and enable Neon Auth for its primary branch.
 2. Copy `.env.example` to `.env.local` and set:
