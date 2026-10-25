@@ -25,8 +25,8 @@ import { absoluteInviteUrl } from "@/lib/invites";
 import type { ListView, MemberView, TaskView, WorkspaceView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function AppSidebar({ surface = "calendar", workspace, members, lists, tasks, filter, onFilter, onAdd, onShowTasks, onShowCalendar, onShowAgenda, onNavigate, onCollapse }: {
-  surface?: "calendar" | "agenda";
+export function AppSidebar({ surface = "calendar", workspace, members, lists, tasks, filter, onFilter, onAdd, onShowTasks, onShowCalendar, onShowMyList, onNavigate, onCollapse }: {
+  surface?: "calendar" | "tasks";
   workspace: WorkspaceView;
   members: MemberView[];
   lists: ListView[];
@@ -36,7 +36,7 @@ export function AppSidebar({ surface = "calendar", workspace, members, lists, ta
   onAdd: () => void;
   onShowTasks: () => void;
   onShowCalendar?: () => void;
-  onShowAgenda?: () => void;
+  onShowMyList?: () => void;
   onNavigate?: () => void;
   onCollapse?: () => void;
 }) {
@@ -95,7 +95,7 @@ export function AppSidebar({ surface = "calendar", workspace, members, lists, ta
         <div className="mt-3.5 min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain pr-1">
           <nav className="grid gap-1" aria-label="Primary">
             <NavButton active={surface === "calendar"} icon={CalendarDays} label="Calendar" onClick={() => { onFilter("all"); onShowCalendar?.(); onNavigate?.(); }} />
-            <NavButton active={surface === "agenda"} icon={NotebookTabs} label="My List" onClick={() => { onShowAgenda?.(); onNavigate?.(); }} />
+            <NavButton active={surface === "tasks"} icon={NotebookTabs} label="My List" onClick={() => { onShowMyList?.(); onNavigate?.(); }} />
             <NavButton active={surface === "calendar" && filter === "all"} icon={ListChecks} label="All incomplete" count={open.length} onClick={() => choose("all")} />
           </nav>
           <SidebarSectionToggle label="Smart Views" open={smartViewsOpen} onToggle={() => setSmartViewsOpen((open) => !open)} />

@@ -17,15 +17,18 @@ export type TaskView = {
   id: string;
   title: string;
   notes: string | null;
+  scheduledDate: string | null;
   dueAt: string | null;
   dueIsAllDay: boolean;
   assigneeUserId: string | null;
   listId: string | null;
   priority: "none" | "low" | "medium" | "high";
+  quadrant: 1 | 2 | 3 | 4 | null;
   completedAt: string | null;
   recurrence: RecurrenceRule | null;
   createdBy: string;
   updatedBy: string;
+  position: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -61,36 +64,6 @@ export type AppData = {
   lists: ListView[];
   tasks: TaskView[];
   events: EventView[];
-};
-
-export type AgendaItemView = {
-  id: string;
-  content: string;
-  date: string;
-  position: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type AgendaDayView = {
-  date: string;
-  items: AgendaItemView[];
-  isYesterday: boolean;
-};
-
-export type AgendaOwnerView = {
-  ownerUserId: string;
-  displayName: string;
-  canEdit: boolean;
-  isShared: boolean;
-  days: AgendaDayView[];
-};
-
-export type AgendaData = {
-  currentUserId: string;
-  workspaceTimezone: string;
-  today: string;
-  agendas: AgendaOwnerView[];
 };
 
 export type ActionResult<T = undefined> =

@@ -1,7 +1,7 @@
 "use server";
 
 import { addDays } from "date-fns";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { activityEvents, events, taskLists, tasks, workspaceMembers, workspaces } from "../../../db/schema";
@@ -13,7 +13,7 @@ import { type DatabaseTransaction, withDatabaseTransaction } from "@/lib/db/tran
 import { dateKey, localDate, localDateTimeToUtc, utcToLocalParts } from "@/lib/dates/timezone";
 import { nextRecurrenceDate, parseRecurrence, serializeRecurrence } from "@/lib/recurrence";
 import type { ActionResult } from "@/lib/types";
-import { eventSchema, idSchema, listSchema, taskSchema } from "@/lib/validation/schemas";
+import { eventSchema, idSchema, listSchema, plannerTaskOrderSchema, taskSchema } from "@/lib/validation/schemas";
 import { actionFailure, validationFailure } from "./helpers";
 
 type MutationActor = { workspaceId: string; userId: string; displayName: string };
@@ -69,11 +69,13 @@ export async function saveTaskAction(input: unknown): Promise<ActionResult<{ id:
       const data = {
         title: value.title,
         notes: value.notes || null,
+        ...(value.scheduledDate !== undefined ? { scheduledDate: value.scheduledDate || null } : {}),
         dueAt,
         dueIsAllDay: !value.dueTime,
         assigneeUserId: value.assigneeUserId || null,
         listId: value.listId || null,
         priority: value.priority,
+        ...(value.quadrant !== undefined ? { quadrant: value.quadrant } : {}),
         recurrence: serializeRecurrence(value.recurrence),
         updatedBy: user.id,
         updatedAt: new Date(),
@@ -86,13 +88,44 @@ export async function saveTaskAction(input: unknown): Promise<ActionResult<{ id:
         await recordActivity(transaction, actor, buildTaskUpdated(before, updated, context));
         return { id: updated.id };
       }
-      const [created] = await transaction.insert(tasks).values({ ...data, workspaceId: membership.workspaceId, createdBy: user.id }).returning();
+      const [lastTask] = await transaction.select({ position: tasks.position }).from(tasks).where(eq(tasks.workspaceId, membership.workspaceId)).orderBy(desc(tasks.position)).limit(1);
+      const [created] = await transaction.insert(tasks).values({ ...data, workspaceId: membership.workspaceId, createdBy: user.id, position: (lastTask?.position ?? -1) + 1 }).returning();
       if (!created) throw new Error("NOT_FOUND");
       await recordActivity(transaction, actor, buildTaskCreated(created, context));
       return { id: created.id };
     });
     revalidateProduct();
     return { ok: true, data: saved };
+  } catch (error) {
+    return actionFailure(error);
+  }
+}
+
+export async function reorderPlannerTasksAction(input: unknown): Promise<ActionResult> {
+  const parsed = plannerTaskOrderSchema.safeParse(input);
+  if (!parsed.success) return validationFailure(parsed.error);
+  try {
+    const { user, membership } = await requireWorkspace();
+    await withDatabaseTransaction(async (transaction) => {
+      const ids = parsed.data.tasks.map((task) => task.id);
+      const existing = await transaction.select({ id: tasks.id }).from(tasks).where(and(
+        eq(tasks.workspaceId, membership.workspaceId),
+        inArray(tasks.id, ids),
+      )).for("update");
+      if (existing.length !== ids.length) throw new Error("NOT_FOUND");
+      const now = new Date();
+      for (const task of parsed.data.tasks) {
+        await transaction.update(tasks).set({
+          scheduledDate: task.scheduledDate,
+          quadrant: task.quadrant,
+          position: task.position,
+          updatedBy: user.id,
+          updatedAt: now,
+        }).where(and(eq(tasks.id, task.id), eq(tasks.workspaceId, membership.workspaceId)));
+      }
+    });
+    revalidateProduct();
+    return { ok: true, data: undefined };
   } catch (error) {
     return actionFailure(error);
   }
