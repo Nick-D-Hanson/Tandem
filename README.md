@@ -1,5 +1,7 @@
 # Tandem
 
+[![CI](https://github.com/Nick-D-Hanson/Tandem/actions/workflows/ci.yml/badge.svg)](https://github.com/Nick-D-Hanson/Tandem/actions/workflows/ci.yml)
+
 **A shared calendar and task planner designed to turn two people's moving schedules into one clear plan.**
 
 Tandem is a full-stack collaboration product for managing events, planned work, and everyday responsibilities. Its central design goal is to make a shared plan easier to understand and act on without sacrificing individual accountability.
