@@ -1,21 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-describe("Agenda migration defaults", () => {
-  const migration = readFileSync(new URL("../db/migrations/0003_abnormal_photon.sql", import.meta.url), "utf8");
-
-  it("keeps all new and existing member Agendas private by default", () => {
-    expect(migration).toContain('"is_shared" boolean DEFAULT false NOT NULL');
-    expect(migration).toContain('"visible_days" integer DEFAULT 3 NOT NULL');
-  });
-
-  it("enforces content, horizon, and non-negative ordering constraints", () => {
-    expect(migration).toContain('CHECK (length(btrim("agenda_items"."content")) between 1 and 300)');
-    expect(migration).toContain('CHECK ("agenda_items"."position" >= 0)');
-    expect(migration).toContain('CHECK ("agenda_preferences"."visible_days" between 1 and 3)');
-  });
-});
-
 describe("Activity ledger migration", () => {
   const migration = readFileSync(new URL("../db/migrations/0004_useful_inertia.sql", import.meta.url), "utf8");
 
@@ -79,5 +64,30 @@ describe("Native push device migration", () => {
     expect(migration).toContain('CREATE UNIQUE INDEX "native_push_devices_workspace_user_device_unique"');
     expect(migration).toContain('CREATE UNIQUE INDEX "native_push_devices_token_unique"');
     expect(migration).toContain('CHECK ("native_push_devices"."platform" in (\'ios\'))');
+  });
+});
+
+describe("Task planning migration", () => {
+  const migration = readFileSync(new URL("../db/migrations/0009_amused_kate_bishop.sql", import.meta.url), "utf8");
+
+  it("adds nullable planning fields without inferring values for existing tasks", () => {
+    expect(migration).toContain('ADD COLUMN "scheduled_date" date');
+    expect(migration).toContain('ADD COLUMN "quadrant" integer');
+    expect(migration).not.toContain("UPDATE \"tasks\"");
+  });
+
+  it("constrains quadrants and indexes both planner groupings", () => {
+    expect(migration).toContain('"quadrant" between 1 and 4');
+    expect(migration).toContain('tasks_workspace_scheduled_position_idx');
+    expect(migration).toContain('tasks_workspace_quadrant_position_idx');
+  });
+});
+
+describe("Daily List removal migration", () => {
+  const migration = readFileSync(new URL("../db/migrations/0010_graceful_spiral.sql", import.meta.url), "utf8");
+
+  it("removes the obsolete Daily List persistence tables", () => {
+    expect(migration).toContain('DROP TABLE "agenda_items" CASCADE');
+    expect(migration).toContain('DROP TABLE "agenda_preferences" CASCADE');
   });
 });

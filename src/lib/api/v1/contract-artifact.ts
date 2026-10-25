@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import {
   apiActivitySuccessSchema,
-  apiAgendaRolloverSuccessSchema,
-  apiAgendaSuccessSchema,
   apiCalendarSuccessSchema,
   apiCategoriesSuccessSchema,
   apiFailureSchema,
@@ -67,12 +65,10 @@ export function buildNativeApiContractArtifact() {
         start: "required YYYY-MM-DD",
         end: "required inclusive YYYY-MM-DD; maximum 93 calendar days",
       }),
-      "/api/v1/my-list": readEndpoint(apiAgendaSuccessSchema),
       "/api/v1/activity": readEndpoint(apiActivitySuccessSchema, {
         cursorOccurredAt: "optional ISO 8601 cursor; required with cursorId",
         cursorId: "optional UUID cursor; required with cursorOccurredAt",
       }),
-      "/api/v1/my-list/rollover": mutationEndpoint("POST", apiAgendaRolloverSuccessSchema),
       "/api/v1/tasks/:id/move-date": mutationEndpoint("PATCH", apiTaskMoveSuccessSchema, apiMoveDateBodySchema),
       "/api/v1/events/:id/move-date": mutationEndpoint("PATCH", apiEventMoveSuccessSchema, apiMoveDateBodySchema),
       "/api/v1/widget-snapshot": readEndpoint(apiWidgetSnapshotSuccessSchema),

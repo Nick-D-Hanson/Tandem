@@ -94,10 +94,12 @@ export const tasks = pgTable(
     listId: uuid("list_id").references(() => taskLists.id, { onDelete: "set null" }),
     title: text("title").notNull(),
     notes: text("notes"),
+    scheduledDate: date("scheduled_date", { mode: "string" }),
     dueAt: timestamp("due_at", { withTimezone: true }),
     dueIsAllDay: boolean("due_is_all_day").notNull().default(true),
     assigneeUserId: text("assignee_user_id"),
     priority: text("priority").notNull().default("none"),
+    quadrant: integer("quadrant"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     recurrence: text("recurrence"),
     position: integer("position").notNull().default(0),
@@ -107,7 +109,11 @@ export const tasks = pgTable(
   },
   (table) => [
     check("tasks_priority_check", sql`${table.priority} in ('none', 'low', 'medium', 'high')`),
+    check("tasks_quadrant_check", sql`${table.quadrant} is null or ${table.quadrant} between 1 and 4`),
+    check("tasks_position_check", sql`${table.position} >= 0`),
     index("tasks_workspace_due_idx").on(table.workspaceId, table.dueAt),
+    index("tasks_workspace_scheduled_position_idx").on(table.workspaceId, table.scheduledDate, table.position),
+    index("tasks_workspace_quadrant_position_idx").on(table.workspaceId, table.quadrant, table.position),
     index("tasks_workspace_completed_idx").on(table.workspaceId, table.completedAt),
     index("tasks_workspace_list_idx").on(table.workspaceId, table.listId),
     index("tasks_workspace_assignee_idx").on(table.workspaceId, table.assigneeUserId),
@@ -138,45 +144,6 @@ export const events = pgTable(
     check("events_time_order_check", sql`${table.endAt} > ${table.startAt}`),
     index("events_workspace_start_end_idx").on(table.workspaceId, table.startAt, table.endAt),
     index("events_workspace_list_idx").on(table.workspaceId, table.listId),
-  ],
-);
-
-export const agendaPreferences = pgTable(
-  "agenda_preferences",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    userId: text("user_id").notNull(),
-    visibleDays: integer("visible_days").notNull().default(3),
-    isShared: boolean("is_shared").notNull().default(false),
-    ...auditColumns,
-  },
-  (table) => [
-    uniqueIndex("agenda_preferences_workspace_user_unique").on(table.workspaceId, table.userId),
-    index("agenda_preferences_workspace_user_idx").on(table.workspaceId, table.userId),
-    check("agenda_preferences_visible_days_check", sql`${table.visibleDays} between 1 and 3`),
-  ],
-);
-
-export const agendaItems = pgTable(
-  "agenda_items",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    ownerUserId: text("owner_user_id").notNull(),
-    agendaDate: date("agenda_date", { mode: "string" }).notNull(),
-    content: text("content").notNull(),
-    position: integer("position").notNull().default(0),
-    ...auditColumns,
-  },
-  (table) => [
-    index("agenda_items_owner_date_position_idx").on(table.workspaceId, table.ownerUserId, table.agendaDate, table.position),
-    check("agenda_items_content_check", sql`length(btrim(${table.content})) between 1 and 300`),
-    check("agenda_items_position_check", sql`${table.position} >= 0`),
   ],
 );
 
@@ -333,8 +300,6 @@ export type WorkspaceMemberRow = typeof workspaceMembers.$inferSelect;
 export type TaskListRow = typeof taskLists.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type EventRow = typeof events.$inferSelect;
-export type AgendaPreferenceRow = typeof agendaPreferences.$inferSelect;
-export type AgendaItemRow = typeof agendaItems.$inferSelect;
 export type ActivityEventRow = typeof activityEvents.$inferSelect;
 export type ActivityReadStateRow = typeof activityReadStates.$inferSelect;
 export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;

@@ -115,32 +115,6 @@ export const apiCalendarDataSchema = z.object({
   truncated: z.boolean(),
 }).strict();
 
-export const apiAgendaItemSchema = z.object({
-  id: uuidSchema,
-  content: z.string().min(1).max(300),
-  date: dateOnlySchema,
-  position: z.number().int().min(0),
-  createdAt: isoTimestampSchema,
-  updatedAt: isoTimestampSchema,
-}).strict();
-
-export const apiAgendaDataSchema = z.object({
-  currentUserId: z.string().min(1).max(200),
-  workspaceTimezone: z.string().min(1).max(100),
-  today: dateOnlySchema,
-  agendas: z.array(z.object({
-    ownerUserId: z.string().min(1).max(200),
-    displayName: z.string().min(1).max(120),
-    canEdit: z.boolean(),
-    isShared: z.boolean(),
-    days: z.array(z.object({
-      date: dateOnlySchema,
-      items: z.array(apiAgendaItemSchema),
-      isYesterday: z.boolean(),
-    }).strict()).max(4),
-  }).strict()).max(2),
-}).strict();
-
 export const apiActivityDataSchema = z.object({
   items: z.array(z.object({
     id: uuidSchema,
@@ -162,7 +136,6 @@ export const apiActivityDataSchema = z.object({
 export const apiCategoriesSuccessSchema = apiSuccessSchema(apiCategoriesDataSchema);
 export const apiTasksSuccessSchema = apiSuccessSchema(apiTasksDataSchema);
 export const apiCalendarSuccessSchema = apiSuccessSchema(apiCalendarDataSchema);
-export const apiAgendaSuccessSchema = apiSuccessSchema(apiAgendaDataSchema);
 export const apiActivitySuccessSchema = apiSuccessSchema(apiActivityDataSchema);
 
 export const apiMoveDateBodySchema = z.object({ targetDate: dateOnlySchema }).strict();
@@ -177,14 +150,8 @@ export const apiEventMoveDataSchema = z.object({
   endAt: isoTimestampSchema,
   allDay: z.boolean(),
 }).strict();
-export const apiAgendaRolloverDataSchema = z.object({
-  movedCount: z.number().int().min(1),
-  today: dateOnlySchema,
-}).strict();
-
 export const apiTaskMoveSuccessSchema = apiSuccessSchema(apiTaskMoveDataSchema);
 export const apiEventMoveSuccessSchema = apiSuccessSchema(apiEventMoveDataSchema);
-export const apiAgendaRolloverSuccessSchema = apiSuccessSchema(apiAgendaRolloverDataSchema);
 
 export const apiWidgetItemSchema = z.object({
   type: z.enum(["event", "task"]),
@@ -195,11 +162,6 @@ export const apiWidgetItemSchema = z.object({
   priority: z.enum(["None", "Low", "Medium", "High"]).nullable(),
 }).strict();
 
-export const apiWidgetMyListItemSchema = z.object({
-  id: uuidSchema,
-  title: z.string().min(1).max(300),
-}).strict();
-
 export const apiWidgetSnapshotDataSchema = z.object({
   generatedAt: isoTimestampSchema,
   workspaceTimeZone: z.string().min(1).max(100),
@@ -208,7 +170,6 @@ export const apiWidgetSnapshotDataSchema = z.object({
   today: z.object({
     calendar: z.array(apiWidgetItemSchema).max(5),
     tasks: z.array(apiWidgetItemSchema).max(5),
-    myList: z.array(apiWidgetMyListItemSchema).max(7),
   }).strict(),
   upcoming: z.array(apiWidgetItemSchema).max(5),
 }).strict();

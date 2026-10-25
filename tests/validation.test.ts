@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { agendaItemCreateSchema, agendaReorderSchema, agendaVisibilitySchema, eventSchema, listSchema, pushEndpointSchema, pushSubscriptionSchema, taskSchema, workspaceSchema } from "@/lib/validation/schemas";
+import { eventSchema, listSchema, plannerTaskOrderSchema, pushEndpointSchema, pushSubscriptionSchema, taskSchema, workspaceSchema } from "@/lib/validation/schemas";
 
 describe("mutation validation", () => {
   it("rejects an event whose end is before its start", () => {
@@ -11,6 +11,17 @@ describe("mutation validation", () => {
   it("accepts undated and unassigned tasks", () => {
     const result = taskSchema.safeParse({ title: "Replace filter", dueDate: "", dueTime: "", assigneeUserId: "", listId: "", priority: "low" });
     expect(result.success).toBe(true);
+  });
+
+  it("keeps planned work, deadlines, and matrix priority independent", () => {
+    const result = taskSchema.safeParse({ title: "Draft proposal", scheduledDate: "2026-09-22", dueDate: "2026-09-25", dueTime: "", assigneeUserId: "", listId: "", priority: "none", quadrant: 2 });
+    expect(result.success).toBe(true);
+  });
+
+  it("validates persisted planner ordering without duplicate task IDs", () => {
+    const update = { id: "2f8fcb8a-4adb-4c66-8e91-a91cf7ff5d63", scheduledDate: null, quadrant: 1 as const, position: 0 };
+    expect(plannerTaskOrderSchema.safeParse({ tasks: [update] }).success).toBe(true);
+    expect(plannerTaskOrderSchema.safeParse({ tasks: [update, update] }).success).toBe(false);
   });
 
   it("requires a due date for repeating tasks", () => {
@@ -48,23 +59,6 @@ describe("mutation validation", () => {
     expect(listSchema.safeParse({ name: "Home", color: "blue" }).success).toBe(false);
   });
 
-  it("accepts the supported Agenda preferences", () => {
-    expect(agendaVisibilitySchema.safeParse({ visibility: "private" }).success).toBe(true);
-    expect(agendaVisibilitySchema.safeParse({ visibility: "workspace" }).success).toBe(false);
-  });
-
-  it("trims Agenda content and enforces its length", () => {
-    const parsed = agendaItemCreateSchema.safeParse({ date: "2026-08-02", content: "  Call Mom  " });
-    expect(parsed.success && parsed.data.content).toBe("Call Mom");
-    expect(agendaItemCreateSchema.safeParse({ date: "2026-08-02", content: "   " }).success).toBe(false);
-    expect(agendaItemCreateSchema.safeParse({ date: "2026-08-02", content: "x".repeat(301) }).success).toBe(false);
-  });
-
-  it("rejects duplicate Agenda dates and item IDs in reorder payloads", () => {
-    const id = "2f8fcb8a-4adb-4c66-8e91-a91cf7ff5d63";
-    expect(agendaReorderSchema.safeParse({ days: [{ date: "2026-08-02", itemIds: [id] }, { date: "2026-08-03", itemIds: [id] }] }).success).toBe(false);
-    expect(agendaReorderSchema.safeParse({ days: [{ date: "2026-08-02", itemIds: [] }, { date: "2026-08-02", itemIds: [] }] }).success).toBe(false);
-  });
 });
 
 describe("push subscription validation", () => {

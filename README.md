@@ -71,7 +71,7 @@ The Playwright happy path requires `E2E_EMAIL` and `E2E_PASSWORD` for a Neon Aut
 
 The bell in the Calendar and My List headers opens `Activity Summary`. It loads the newest 50 entries separately from normal app data, supports cursor-based pagination, and groups entries by workspace-local day. A member sees both their own and other members' changes, but only other-member activity increases that member's private unread count. Opening the panel advances a timestamp-and-ID watermark only to the newest accessible event.
 
-Tracked Task actions are create, complete, reopen, remove, and changes to due date, category, priority, or assignee. Tracked Event actions are create, remove, and changes to date/range or category. A save with multiple tracked changes produces one combined entry. Title-, notes-, description-, location-, color-, and recurrence-only edits are not tracked; My List items, categories, workspace settings, and invitations are also outside this activity ledger. Stored title, actor, date, category, assignee, and priority snapshots keep deleted-item history readable.
+Tracked Task actions are create, complete, reopen, remove, and changes to due date, category, priority, or assignee. Tracked Event actions are create, remove, and changes to date/range or category. A save with multiple tracked changes produces one combined entry. Title-, notes-, description-, location-, color-, and recurrence-only edits are not tracked; categories, workspace settings, and invitations are also outside this activity ledger. Stored title, actor, date, category, assignee, and priority snapshots keep deleted-item history readable.
 
 ## Optional daily Web Push
 

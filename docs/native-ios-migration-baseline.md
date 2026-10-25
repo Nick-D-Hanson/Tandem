@@ -30,7 +30,6 @@ User-facing product name: **Tandem**
 - Month, week, today, quarter, upcoming-events, and agenda-style calendar presentations.
 - Date-only/all-day and timed Event handling, including multi-day Event display and recurring calculated occurrences.
 - Optional-date Tasks with category, assignee, priority, completion/reopen, recurrence, notes, and creator/updater metadata.
-- My List (stored internally as Agenda): member-owned, private by default, optionally shared read-only, yesterday shown only when populated, three-day future horizon, persisted arbitrary items, and drag/reorder within or across displayed days.
 - Canonical Activity Summary with actor and item snapshots, creation/deletion/completion/reopen/update events, tracked date/category/priority/assignee changes, per-member read/clear state, and cursor pagination.
 - Web Push subscription management and an idempotent daily 7:00 PM America/Chicago activity digest that excludes the recipient's own activity and uses privacy-preserving notification copy.
 - PWA manifest, service-worker registration, push handling, safe same-origin notification navigation, and a Tandem icon.
@@ -38,8 +37,7 @@ User-facing product name: **Tandem**
 Not currently implemented:
 
 - A versioned native-client API beyond the Neon Auth catch-all route and the internal cron route.
-- Calendar Task/Event drag-to-date behavior. Existing drag/drop is limited to My List.
-- The dedicated transactional **Move all to today** My List rollover action.
+- Calendar Task/Event drag-to-date behavior.
 - Native push-token registration/delivery, Expo/WidgetKit widgets, or native deep links.
 
 ## Current authentication model
@@ -47,7 +45,7 @@ Not currently implemented:
 - `createNeonAuth` is configured server-side using `NEON_AUTH_BASE_URL` and `NEON_AUTH_COOKIE_SECRET`.
 - Web sessions are read from Neon Auth via `auth.getSession()` and refreshed by the Next.js proxy middleware.
 - The application resolves the authenticated user first and then loads that user's sole `workspace_members` record; client input does not select authoritative workspace membership.
-- Scoped resource queries include workspace and, for private My List writes, owner identity. Cross-workspace access is intentionally returned as `NOT_FOUND`.
+- Scoped resource queries include the authorized workspace. Cross-workspace access is intentionally returned as `NOT_FOUND`.
 - Native compatibility is unproven. The installed Neon Auth beta package must be checked against current official Neon/Better Auth Expo documentation before any production-data native auth or writes are claimed.
 
 ## Current schema
@@ -56,17 +54,15 @@ The Drizzle schema and committed migrations define:
 
 - `workspaces`, `workspace_members`, and `workspace_invites`.
 - `task_lists` (user-facing categories), `tasks`, and `events`.
-- `agenda_preferences` and `agenda_items` for My List.
 - `activity_events` and `activity_read_states` for the shared activity ledger and private read/clear watermarks.
 - `push_subscriptions`, `activity_digests`, and `activity_digest_deliveries` for Web Push and idempotent digest delivery.
 
-Important invariants include one workspace membership per user, at most two members enforced in server logic, workspace-scoped indexes, private-by-default My List preferences, bounded My List content/position values, immutable activity item snapshots, and one digest/delivery record per recipient/device/day combination.
+Important invariants include one workspace membership per user, at most two members enforced in server logic, workspace-scoped indexes, immutable activity item snapshots, and one digest/delivery record per recipient/device/day combination.
 
 ## Current mutation architecture
 
 - The web UI calls `"use server"` actions in `src/lib/actions`.
 - Task/Event/category mutations validate Zod inputs, derive the workspace from the session, and use Drizzle transactions where item changes and Activity Summary writes must be atomic.
-- My List actions independently enforce owner-only edits and use a SQL statement for atomic cross-day reorder validation/normalization.
 - Workspace and invite actions preserve token hashing, expiry, membership scoping, and the two-member invariant.
 - Push actions scope subscription inspection/upsert/removal to the authenticated workspace/user.
 - Native route handlers should call extracted server-only domain services, not UI-specific server actions. Initial extraction should be incremental so the web action behavior stays unchanged.
@@ -74,7 +70,6 @@ Important invariants include one workspace membership per user, at most two memb
 ## Current read and API surface
 
 - `getAppData()` loads the current workspace, members, all categories, all Tasks, and all Events. It is workspace-scoped but currently unbounded.
-- `getAgendaData()` returns the authenticated member's My List plus a partner's list only when shared, within yesterday-through-three-days-ahead.
 - `getActivityPage()` provides bounded cursor pagination and per-member read/clear semantics.
 - Existing HTTP routes are `/api/auth/[...path]` and `/api/cron/activity-digest` only.
 - The native API will add stable Zod DTOs and JSON envelopes under `/api/v1`, with date-window and page-size bounds and no raw database rows.
@@ -114,9 +109,8 @@ The web repository owns API DTO schemas, authentication enforcement, workspace a
 2. **Unbounded legacy read model:** `getAppData()` loads all workspace Tasks and Events. Native calendar endpoints need explicit date windows and task limits without regressing the web view.
 3. **Transport/domain coupling:** current mutations are server actions. Reusable server-only services must be extracted carefully so API handlers do not inherit UI request-context behavior.
 4. **Calendar date semantics:** all-day Event end timestamps use an exclusive boundary while product duration is inclusive by local date. Move-date services must preserve spans across DST and reject calculated recurring occurrences.
-5. **My List rollover:** the existing reorder machinery can inform the implementation, but rollover requires a dedicated owner-only transaction with stable IDs and exact append ordering.
-6. **Push channel separation:** browser VAPID subscriptions cannot be reused for native push. The digest core is reusable, while device registration and delivery records need a compatible extension.
-7. **Widgets/signing:** Expo Widgets requires a compatible Expo SDK, a development build, an App Group, a widget extension identifier, and eventually Apple signing credentials. Physical-device validation is expected to remain external.
-8. **Sibling write permissions:** the current execution sandbox treats the sibling repository as outside the web workspace root, so native repository writes may require explicit filesystem approval even though the directory is user-requested.
-9. **Contract drift:** native types must be generated or deterministically checked against canonical web Zod DTOs; copying ad-hoc TypeScript types would create silent drift.
-10. **No safe local production proof:** no production database migration, deployment, push send, Apple signing, TestFlight upload, or App Store submission is authorized by this migration.
+5. **Push channel separation:** browser VAPID subscriptions cannot be reused for native push. The digest core is reusable, while device registration and delivery records need a compatible extension.
+6. **Widgets/signing:** Expo Widgets requires a compatible Expo SDK, a development build, an App Group, a widget extension identifier, and eventually Apple signing credentials. Physical-device validation is expected to remain external.
+7. **Sibling write permissions:** the current execution sandbox treats the sibling repository as outside the web workspace root, so native repository writes may require explicit filesystem approval even though the directory is user-requested.
+8. **Contract drift:** native types must be generated or deterministically checked against canonical web Zod DTOs; copying ad-hoc TypeScript types would create silent drift.
+9. **No safe local production proof:** no production database migration, deployment, push send, Apple signing, TestFlight upload, or App Store submission is authorized by this migration.

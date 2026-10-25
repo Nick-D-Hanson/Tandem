@@ -1,6 +1,5 @@
 import { addDays } from "date-fns";
 
-import type { AgendaData } from "@/lib/types";
 import { dateKey, formatWorkspaceDate, localDate, utcToLocalParts, workspaceDateKey } from "@/lib/dates/timezone";
 import type { ApiCalendarData, ApiCategoriesData, ApiWidgetSnapshotData } from "./contracts";
 import { apiWidgetSnapshotDataSchema } from "./contracts";
@@ -8,13 +7,12 @@ import { apiWidgetSnapshotDataSchema } from "./contracts";
 type WidgetSource = {
   calendar: ApiCalendarData;
   categories: ApiCategoriesData;
-  agenda: AgendaData;
   now?: Date;
 };
 
 type SortableWidgetItem = ApiWidgetSnapshotData["upcoming"][number] & { sortAt: number; localDate: string };
 
-export function buildWidgetSnapshot({ calendar, categories, agenda, now = new Date() }: WidgetSource): ApiWidgetSnapshotData {
+export function buildWidgetSnapshot({ calendar, categories, now = new Date() }: WidgetSource): ApiWidgetSnapshotData {
   const timezone = calendar.workspaceTimezone;
   const today = workspaceDateKey(timezone, now);
   const categoryColors = new Map(categories.categories.map((category) => [category.id, category.color]));
@@ -43,8 +41,6 @@ export function buildWidgetSnapshot({ calendar, categories, agenda, now = new Da
     localDate: utcToLocalParts(event.startAt, timezone).date,
   }));
   const sorted = [...eventItems, ...taskItems].sort((left, right) => left.sortAt - right.sortAt || left.id.localeCompare(right.id));
-  const ownAgenda = agenda.agendas.find((owner) => owner.ownerUserId === agenda.currentUserId);
-  const myList = ownAgenda?.days.find((day) => day.date === today)?.items.slice(0, 7).map((item) => ({ id: item.id, title: item.content })) ?? [];
   const nextUp = sorted.filter((item) => item.sortAt >= now.getTime() || item.localDate === today).slice(0, 1).map(stripSort);
 
   return apiWidgetSnapshotDataSchema.parse({
@@ -55,7 +51,6 @@ export function buildWidgetSnapshot({ calendar, categories, agenda, now = new Da
     today: {
       calendar: eventItems.filter((item) => eventOccursOnLocalDate(item, calendar, today, timezone)).sort(sortWidgetItem).slice(0, 5).map(stripSort),
       tasks: taskItems.filter((item) => item.localDate === today).sort(sortWidgetItem).slice(0, 5).map(stripSort),
-      myList,
     },
     upcoming: sorted.filter((item) => item.localDate > today).slice(0, 5).map(stripSort),
   });

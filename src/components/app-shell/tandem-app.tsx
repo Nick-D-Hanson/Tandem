@@ -18,12 +18,12 @@ import type { ActivityPage } from "@/lib/activity/types";
 import type { AppData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function TandemApp({ data, activityData, initialView = "month", initialDate, initialActivityOpen = false }: { data: AppData; activityData: ActivityPage; initialView?: CalendarMode; initialDate?: string; initialActivityOpen?: boolean }) {
+export function TandemApp({ data, activityData, initialView = "month", initialDate, initialTaskFilter = "all", initialActivityOpen = false }: { data: AppData; activityData: ActivityPage; initialView?: CalendarMode; initialDate?: string; initialTaskFilter?: TaskFilter; initialActivityOpen?: boolean }) {
   const router = useRouter();
   const [mode, setMode] = useState<CalendarMode>(initialView);
   const [anchor, setAnchor] = useState(() => initialDate ? localDate(initialDate) : new Date());
-  const [filter, setFilter] = useState<TaskFilter>("all");
-  const [mobileScreen, setMobileScreen] = useState<"calendar" | "tasks">("calendar");
+  const [filter, setFilter] = useState<TaskFilter>(initialTaskFilter);
+  const [mobileScreen, setMobileScreen] = useState<"calendar" | "tasks">(initialTaskFilter === "all" ? "calendar" : "tasks");
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [desktopTaskSidebarOpen, setDesktopTaskSidebarOpen] = useState(true);
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(236);
@@ -65,7 +65,7 @@ export function TandemApp({ data, activityData, initialView = "month", initialDa
     updateCalendar("today", localDate(dateKey(zonedNow(data.workspace.timezone))));
   }
 
-  const sidebar = <AppSidebar surface="calendar" workspace={data.workspace} members={data.members} lists={data.lists} tasks={data.tasks} filter={filter} onFilter={setFilter} onAdd={() => openEditor({ type: "event", date: dateKey(anchor) })} onShowTasks={showTasks} onShowCalendar={() => setMobileScreen("calendar")} onShowAgenda={() => router.push("/app/my-list")} onNavigate={() => setMobileNavOpen(false)} onCollapse={() => setLeftSidebarOpen(false)} />;
+  const sidebar = <AppSidebar surface="calendar" workspace={data.workspace} members={data.members} lists={data.lists} tasks={data.tasks} filter={filter} onFilter={setFilter} onAdd={() => openEditor({ type: "event", date: dateKey(anchor) })} onShowTasks={showTasks} onShowCalendar={() => setMobileScreen("calendar")} onShowMyList={() => router.push("/app/my-list")} onNavigate={() => setMobileNavOpen(false)} onCollapse={() => setLeftSidebarOpen(false)} />;
   const gridColumns = `${leftSidebarOpen ? leftSidebarWidth : 44}px minmax(0, 1fr) ${desktopTaskSidebarOpen ? rightSidebarWidth : 44}px`;
 
   return (

@@ -56,13 +56,3 @@ export function zonedNow(timezone: string) {
 export function workspaceDateKey(timezone: string, instant: Date = new Date()) {
   return formatInTimeZone(instant, timezone, "yyyy-MM-dd");
 }
-
-export function agendaDateWindow(timezone: string, instant: Date = new Date()) {
-  const today = localDate(workspaceDateKey(timezone, instant));
-  return {
-    yesterday: dateKey(addDays(today, -1)),
-    today: dateKey(today),
-    future: Array.from({ length: 3 }, (_, index) => dateKey(addDays(today, index))),
-    editable: Array.from({ length: 4 }, (_, index) => dateKey(addDays(today, index - 1))),
-  };
-}

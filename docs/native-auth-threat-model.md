@@ -56,7 +56,6 @@ Sensitive assets:
 - Neon session credentials/cookies
 - account email and profile data
 - workspace membership and IDs
-- private My List content
 - shared Task/Event data and Activity Summary history
 - native push token
 - widget snapshot titles
@@ -161,9 +160,9 @@ Threat: an authenticated member supplies another workspace or item ID.
 Required controls:
 
 - Resolve the user's workspace from server membership on every request.
-- Re-fetch mutation targets with both resource ID and authorized workspace (and My List owner where required).
+- Re-fetch mutation targets with both resource ID and authorized workspace.
 - Return generic `NOT_FOUND` for absent and foreign records.
-- Keep the two-member invariant and partner My List privacy rules server-side.
+- Keep the two-member invariant server-side.
 - Never rely on native route guards, hidden UI, cached membership, or widget data for authorization.
 
 ## Validation status
